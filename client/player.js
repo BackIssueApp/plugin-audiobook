@@ -63,7 +63,9 @@
       syncAudiobookPrefs();
       const shown = AB_SHELVES.filter(abShelfOn);
       const results = await Promise.all(shown.map((s) => {
-        const q = `/api/collection?library=${libId}&limit=15&offset=0&sort=added`
+        // counts=0: rails never show the filter-chip counts, so skip that whole
+        // count pass server-side (it's the expensive half of a page request).
+        const q = `/api/collection?library=${libId}&limit=15&offset=0&sort=added&counts=0`
           + (s.facet ? `&facet=${encodeURIComponent(s.facet)}` : '');
         return api.get(q)
           .then((r) => ({ s, items: Array.isArray(r) ? r : (r.rows || r.items || []) }))

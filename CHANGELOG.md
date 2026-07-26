@@ -8,6 +8,14 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.1]
+
+### Fixed
+
+- **Faster home rails.** Rail requests now skip the server's filter-chip count
+  pass (`counts=0`) — the counts were never shown, and at large library sizes
+  that pass was most of each rail's load time.
+
 ## [0.3.0]
 
 ### Added
