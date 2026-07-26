@@ -103,9 +103,12 @@ export default function register(api) {
   }, { access: CAN_USE });
 
   // Cover: redirect to the source's thumbnail proxy (nothing embedded here).
+  // The redirect itself is cacheable — without this every card re-pays the
+  // extra round-trip on each library view even when the image is cached.
   api.registerRoute('get', '/api/audiobooks/issue/:id/cover', (req, res) => {
     const c = store.cover(Number(req.params.id));
     if (!c || !c.thumbnail) return res.status(404).end();
+    res.set('Cache-Control', 'private, max-age=86400');
     res.redirect(302, c.thumbnail);
   }, { access: CAN_USE });
 
