@@ -12,6 +12,8 @@ import { Readable } from 'node:stream';
 import config from '../../src/config.js';
 import { registeredRemoteMediaSources } from '../../src/plugins.js';
 import { openAudiobooksStore } from './store.js';
+import { scanLibraries, scanState, audiobookLibraries } from './scanner.js';
+import { makeAudiobookClient, matchNewAudiobooks } from './metadata.js';
 import { runRemoteSync, stopRemoteSync, remoteSyncStatus, isRemoteSyncRunning } from './remotesync.js';
 
 export default function register(api) {
@@ -29,6 +31,44 @@ export default function register(api) {
   const sources = () => registeredRemoteMediaSources('audiobook');
   const sourceFor = (id) => sources().find((s) => s.id === id) || null;
   const uid = (req) => (req.user && req.user.id) || 0;
+
+  // ---- Local library scan + metadata enrichment ------------------------------
+  // A user without a remote source can point an Audiobooks library at local
+  // files (.m4b/.m4a/.mp3): the scan catalogs each file, then the hosted
+  // metadata service fills in covers, narrators, series, and durations. The
+  // hosted match is best-effort — a missing instance key or a service hiccup
+  // never blocks the shelf (files play unmatched; the <audio> element reads the
+  // duration off the file itself).
+  const hosted = makeAudiobookClient(config);
+  async function runScan() {
+    await scanLibraries({ store, log: console.log });
+    try { await matchNewAudiobooks(store, [hosted], { log: console.warn }); }
+    catch (e) { console.warn('audiobooks: metadata matching skipped:', e?.message || e); }
+  }
+  api.registerJob?.({
+    id: 'audiobooks-scan',
+    label: 'Scan audiobook libraries',
+    scheduleKey: 'audiobooksScanHours',
+    run: () => runScan(),
+  });
+  // Creating/editing an Audiobooks library indexes it right away (same UX as
+  // comic and book libraries) instead of waiting for the scheduled scan.
+  api.registerLibraryScanner?.({ type: 'audiobook', scan: () => runScan() });
+  // Boot catch-up: an Audiobooks library with files on disk but nothing indexed
+  // (or indexed local files that never had a metadata-match attempt — e.g.
+  // scanned before the instance key existed) scans shortly after startup. Remote
+  // (on-demand) entries carry their source's metadata, so they're excluded or
+  // the catch-up would re-run over the whole synced catalog on every boot.
+  setTimeout(() => {
+    try {
+      const libs = audiobookLibraries(store.db);
+      if (!libs.some((l) => l.folders.length)) return;
+      const localIndexed = store.db.prepare('SELECT COUNT(*) c FROM audiobooks_files WHERE source IS NULL').get().c;
+      const unattempted = store.db.prepare(
+        'SELECT COUNT(*) c FROM audiobooks_files WHERE match_id IS NULL AND match_checked_at IS NULL AND source IS NULL').get().c;
+      if (localIndexed === 0 || unattempted > 0) runScan().catch(() => {});
+    } catch { /* fresh install without libraries yet */ }
+  }, 15_000).unref?.();
 
   // ---- Streaming: range proxy (remote) or cached file (materialized) ----------
   // The <audio> element issues Range requests to seek; forward them upstream and
@@ -140,6 +180,14 @@ export default function register(api) {
   api.registerRoute('get', '/api/audiobooks/remote-sync/status', (_req, res) => {
     res.json({ ...remoteSyncStatus(), hasSource: sources().length > 0 });
   }, { access: CAN_MANAGE });
+
+  // ---- Local library scan (index on-disk audiobooks + enrich metadata) -------
+  api.registerRoute('post', '/api/audiobooks/scan', (_req, res) => {
+    if (scanState.running) return res.status(409).json({ error: 'A scan is already running.', state: scanState });
+    runScan().catch((e) => console.warn('[audiobooks] scan failed:', e?.message || e));
+    res.json({ started: true, state: scanState });
+  }, { access: CAN_MANAGE });
+  api.registerRoute('get', '/api/audiobooks/scan/status', (_req, res) => res.json(scanState), { access: CAN_USE });
 }
 
 const MIME = { m4b: 'audio/mp4', m4a: 'audio/mp4', mp3: 'audio/mpeg', ogg: 'audio/ogg', opus: 'audio/ogg', flac: 'audio/flac' };

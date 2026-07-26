@@ -11,15 +11,20 @@
 // audio metadata (audiobooks_files), the per-user playback position
 // (audiobooks_progress), bookmarks (audiobooks_bookmarks), and the sync cursor.
 // Same catalog.db file, own connection.
+import path from 'node:path';
 import Database from 'better-sqlite3';
-import { upsertLibraryFile, deleteLibraryFile } from '../../src/db.js';
+import { upsertLibraryFile, linkLibraryFile, deleteLibraryFile, getLibraryFile } from '../../src/db.js';
 
 const slug = (s) => String(s || '').toLowerCase().normalize('NFKD')
   .replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'untitled';
-// One audiobook = one standalone self-described series keyed by title~author, so
-// a re-sync lands on the same row.
-export const seriesUrlFor = (libraryId, meta) =>
-  `audiobook:l${libraryId}:b:${slug(meta.title)}~${slug(meta.author || (meta.authors || [])[0] || '')}`;
+// A series-grouped book (folder layout <Author>/<Series>/<Title>) is keyed by
+// library + series; a standalone by title~author — so both a rescan and a
+// remote re-sync land on the same row.
+export const seriesUrlFor = (libraryId, meta) => (meta.series
+  ? `audiobook:l${libraryId}:s:${slug(meta.series)}`
+  : `audiobook:l${libraryId}:b:${slug(meta.title)}~${slug(meta.author || (meta.authors || [])[0] || '')}`);
+const issueUrlFor = (p) => 'audiobookfile:' + p;
+const indexNumber = (n) => (Number.isFinite(Number(n)) && String(n).trim() !== '' ? String(n) : '1');
 const year4 = (s) => (String(s || '').match(/(\d{4})/) || [])[1] || null;
 const nownow = () => new Date().toISOString();
 
@@ -79,8 +84,20 @@ export function openAudiobooksStore(dbPath) {
       updated_at  TEXT
     );
   `);
+  // The original table only carried remote (file-less) entries; add the columns
+  // a LOCAL scanned file needs (the incremental-skip key + metadata-match state)
+  // to an existing DB. Fresh DBs get them here too — harmless if already present.
+  const abCols = db.prepare("SELECT name FROM pragma_table_info('audiobooks_files')").all().map((r) => r.name);
+  for (const [col, decl] of [
+    ['mtime', 'INTEGER'], ['title_source', 'TEXT'],
+    ['match_id', 'TEXT'], ['match_confidence', 'TEXT'], ['match_checked_at', 'TEXT'],
+  ]) {
+    if (!abCols.includes(col)) db.exec(`ALTER TABLE audiobooks_files ADD COLUMN ${col} ${decl}`);
+  }
 
   const seriesByUrl = (url) => db.prepare('SELECT * FROM series WHERE url=?').get(url);
+  const isStandalone = (seriesRow) => /^audiobook:l\d+:b:/.test(String(seriesRow?.url || ''));
+  const authorsOf = (seriesRow) => String(seriesRow?.publisher || '').split(',').map((a) => a.trim()).filter(Boolean);
   const fileByIssue = (issueId) => db.prepare('SELECT * FROM audiobooks_files WHERE issue_id=?').get(issueId);
 
   const api = {
@@ -152,6 +169,187 @@ export function openAudiobooksStore(dbPath) {
         return { seriesId, issueId, created };
       });
       return tx();
+    },
+
+    /** Catalog one scanned LOCAL audiobook file: a self-described `audiobook`
+     *  series (standalone by title~author, or grouped when the folder layout
+     *  names a series) with one issue, the shared library_files row, and the
+     *  audiobooks_files row carrying path/mtime/format. `source` stays NULL (a
+     *  local file). A filename-derived title is flagged title_source so the
+     *  metadata match may upgrade it; identity is sticky per path so a re-parse
+     *  renames the standalone series in place rather than spawning a duplicate. */
+    catalogFile({ libraryId, path: p, format, size, mtime, meta = {} }) {
+      const author = meta.author || null;
+      const standalone = !meta.series;
+      const title = meta.title || 'Untitled';
+      const url = seriesUrlFor(libraryId, meta);
+      const tx = db.transaction(() => {
+        const prev = db.prepare(`SELECT ef.rowid AS ab_rowid, ef.issue_id, ef.match_id,
+            i.series_id AS prev_series_id, i.title AS prev_title
+          FROM audiobooks_files ef LEFT JOIN issues i ON i.id = ef.issue_id WHERE ef.path=?`).get(p);
+        const prevSeries = prev?.prev_series_id
+          ? db.prepare('SELECT * FROM series WHERE id=?').get(prev.prev_series_id) : null;
+        // A match-upgraded title survives a re-parse that still has only the
+        // filename to offer (strictly worse data).
+        const keepTitle = !!(prev?.match_id && meta.title_source === 'filename' && prev.prev_title);
+        const issueTitle = keepTitle ? prev.prev_title : title;
+        let seriesId;
+        if (prevSeries && standalone && isStandalone(prevSeries) && String(prevSeries.url).startsWith(`audiobook:l${libraryId}:`)) {
+          db.prepare("UPDATE series SET title=?, publisher=COALESCE(?, publisher), type='audiobook', library_id=? WHERE id=?")
+            .run(issueTitle, author, libraryId, prevSeries.id);
+          seriesId = prevSeries.id;
+        } else {
+          db.prepare(`INSERT INTO series (title, url, publisher, type, library_id)
+            VALUES (@title, @url, @publisher, 'audiobook', @lib)
+            ON CONFLICT(url) DO UPDATE SET
+              title=excluded.title,
+              publisher=COALESCE(excluded.publisher, series.publisher),
+              type='audiobook', library_id=excluded.library_id`)
+            .run({ title: standalone ? issueTitle : meta.series, url, publisher: author, lib: libraryId });
+          seriesId = seriesByUrl(url).id;
+        }
+        db.prepare(`INSERT INTO issues (series_id, title, issue_number, url, status, file_path)
+          VALUES (?, ?, ?, ?, 'done', ?)
+          ON CONFLICT(url) DO UPDATE SET series_id=excluded.series_id, title=excluded.title,
+            issue_number=excluded.issue_number, status='done', file_path=excluded.file_path`)
+          .run(seriesId, issueTitle, standalone ? '1' : indexNumber(meta.series_index), issueUrlFor(p), p);
+        const issueId = db.prepare('SELECT id FROM issues WHERE url=?').get(issueUrlFor(p)).id;
+        // A regroup left the old series behind — prune it if now empty.
+        if (prevSeries && prevSeries.id !== seriesId) {
+          const left = db.prepare('SELECT COUNT(*) n FROM issues WHERE series_id=?').get(prevSeries.id).n;
+          if (!left) db.prepare("DELETE FROM series WHERE id=? AND url LIKE 'audiobook:%'").run(prevSeries.id);
+        }
+        // The shared file index — has_metadata=1 (ComicInfo tagging doesn't apply
+        // to audiobooks, so they must never look "untagged").
+        upsertLibraryFile(db, {
+          path: p, dir: path.dirname(p), name: path.basename(p), size, mtime,
+          page_count: null, has_metadata: 1, valid: 1, error: null, verified: 0,
+        });
+        linkLibraryFile(db, p, seriesId, issueId);
+        db.prepare(`INSERT INTO audiobooks_files
+            (path, library_id, series_id, issue_id, format, size, mtime, title_source, added_at)
+          VALUES (@path, @lib, @sid, @iid, @format, @size, @mtime, @title_source, @now)
+          ON CONFLICT(path) DO UPDATE SET
+            library_id=excluded.library_id, series_id=excluded.series_id, issue_id=excluded.issue_id,
+            format=excluded.format, size=excluded.size, mtime=excluded.mtime,
+            title_source=excluded.title_source`)
+          .run({ path: p, lib: libraryId, sid: seriesId, iid: issueId, format,
+            size: size ?? null, mtime: mtime ?? null, title_source: meta.title_source || null, now: nownow() });
+        return { seriesId, issueId };
+      });
+      return tx();
+    },
+
+    /** path → { path, mtime, size, issue_id, source } for one library — the
+     *  incremental-scan skip index. Remote entries (path NULL) key to `null` and
+     *  never collide with a real path. */
+    pathIndex(libraryId) {
+      const rows = db.prepare('SELECT path, mtime, size, issue_id, source FROM audiobooks_files WHERE library_id=?').all(libraryId);
+      return new Map(rows.map((r) => [r.path, r]));
+    },
+    /** Are this file's catalog rows still in place? A local file needs its
+     *  library_files row too; a materialized remote entry (source set) is intact
+     *  as long as its issue survives, so the disk scanner never re-catalogs it. */
+    issueIntact(row) {
+      if (!row?.issue_id) return false;
+      if (!db.prepare('SELECT 1 x FROM issues WHERE id=?').get(row.issue_id)) return false;
+      if (row.source) return true;
+      return !!getLibraryFile(db, row.path);
+    },
+    /** Prune a library's LOCAL rows whose file vanished (library_files + issue +
+     *  progress + bookmarks + plugin row together, and an emptied series). Remote
+     *  entries (source set) are never disk files, so they're left alone. */
+    removeMissing(libraryId, keep) {
+      const gone = db.prepare('SELECT path, issue_id, series_id, source FROM audiobooks_files WHERE library_id=?').all(libraryId)
+        .filter((r) => !r.source && !keep.has(r.path));
+      const seriesTouched = new Set();
+      const tx = db.transaction(() => {
+        for (const r of gone) {
+          deleteLibraryFile(db, r.path);
+          if (r.issue_id != null) {
+            db.prepare('DELETE FROM audiobooks_progress WHERE issue_id=?').run(r.issue_id);
+            db.prepare('DELETE FROM audiobooks_bookmarks WHERE issue_id=?').run(r.issue_id);
+            db.prepare('DELETE FROM issues WHERE id=?').run(r.issue_id);
+          }
+          db.prepare('DELETE FROM audiobooks_files WHERE path=?').run(r.path);
+          if (r.series_id != null) seriesTouched.add(r.series_id);
+        }
+        for (const sid of seriesTouched) {
+          const left = db.prepare('SELECT COUNT(*) n FROM issues WHERE series_id=?').get(sid).n;
+          if (!left) db.prepare("DELETE FROM series WHERE id=? AND url LIKE 'audiobook:%'").run(sid);
+        }
+      });
+      tx();
+      return gone.length;
+    },
+
+    /** Local audiobooks never attempted against the metadata service, in matcher
+     *  shape. Remote entries (source set) carry their source's metadata already,
+     *  so they're excluded — re-matching them would hammer the service. */
+    unmatched(limit = 200) {
+      const rows = db.prepare(`SELECT ef.issue_id, ef.title_source, i.title, i.series_id AS core_series_id
+        FROM audiobooks_files ef JOIN issues i ON i.id = ef.issue_id
+        WHERE ef.match_id IS NULL AND ef.match_checked_at IS NULL AND ef.source IS NULL
+        ORDER BY ef.issue_id LIMIT ?`).all(limit);
+      return rows.map((r) => {
+        const s = db.prepare('SELECT * FROM series WHERE id=?').get(r.core_series_id);
+        return {
+          id: r.issue_id, title: r.title, title_source: r.title_source,
+          authors: authorsOf(s),
+          description: isStandalone(s) ? (s?.description || null) : null,
+        };
+      });
+    },
+    /** Fold an accepted metadata match into the catalog: a filename-derived title
+     *  upgrades (issue + standalone series title), author/description/year fill
+     *  in, and audio fields (narrators, duration, chapters, cover, mature flag)
+     *  land on the plugin row — the match identity recorded so scans don't re-ask. */
+    applyMatch(issueId, merged) {
+      const row = fileByIssue(issueId);
+      if (!row) return;
+      const series = db.prepare('SELECT * FROM series WHERE id=?').get(row.series_id);
+      const standalone = isStandalone(series);
+      const tx = db.transaction(() => {
+        if (merged.title) {
+          db.prepare('UPDATE issues SET title=? WHERE id=?').run(merged.title, issueId);
+          if (standalone) db.prepare('UPDATE series SET title=? WHERE id=?').run(merged.title, series.id);
+        }
+        if (Array.isArray(merged.authors) && merged.authors.length && !series.publisher) {
+          db.prepare('UPDATE series SET publisher=? WHERE id=?').run(merged.authors.join(', '), series.id);
+        }
+        if (standalone && String(merged.description || '').length > String(series.description || '').length) {
+          db.prepare('UPDATE series SET description=? WHERE id=?').run(merged.description, series.id);
+        }
+        if (merged.published_date && standalone && !series.year) {
+          const y = year4(merged.published_date);
+          if (y) db.prepare('UPDATE series SET year=? WHERE id=?').run(y, series.id);
+        }
+        if (merged.explicit != null) db.prepare('UPDATE series SET restricted=? WHERE id=?').run(merged.explicit ? 1 : 0, series.id);
+        db.prepare(`UPDATE audiobooks_files SET
+            match_id=@match_id, match_confidence=@match_confidence,
+            duration=COALESCE(@duration, duration),
+            narrators=COALESCE(@narrators, narrators),
+            chapters=COALESCE(@chapters, chapters),
+            thumbnail=COALESCE(@thumbnail, thumbnail),
+            explicit=@explicit, match_checked_at=@now
+          WHERE issue_id=@iid`)
+          .run({
+            iid: issueId, match_id: merged.match_id ?? null, match_confidence: merged.match_confidence ?? null,
+            duration: merged.duration ?? null,
+            narrators: (merged.narrators && merged.narrators.length) ? merged.narrators.join(', ') : null,
+            chapters: merged.chapters ? JSON.stringify(merged.chapters) : null,
+            thumbnail: merged.thumbnail ?? null, explicit: merged.explicit ? 1 : 0, now: nownow(),
+          });
+        // A cover-less book adopts the service thumbnail via the cover route; the
+        // series cover fills in from it when still blank.
+        if (merged.thumbnail && !series.cover_url) {
+          db.prepare('UPDATE series SET cover_url=? WHERE id=?').run(`/api/audiobooks/issue/${issueId}/cover`, series.id);
+        }
+      });
+      tx();
+    },
+    setMatchChecked(issueId) {
+      db.prepare('UPDATE audiobooks_files SET match_checked_at=? WHERE issue_id=?').run(nownow(), issueId);
     },
 
     /** Record a cached-to-disk file for a previously file-less entry. */

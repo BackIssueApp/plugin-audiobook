@@ -16,6 +16,13 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
   library that syncs a remote source's whole catalog as file-less entries
   (metadata + cover only) and streams each title on play — no up-front
   downloads.
+- **Local library scanning + hosted metadata.** Point an Audiobooks library at
+  a folder of `.m4b`/`.m4a`/`.mp3` files and the scan catalogs each one
+  (title/author derived from the `<Author>/<Title>` folder layout), then the
+  hosted metadata service fills in covers, narrators, series, publisher, and
+  durations. Incremental (unchanged files are skipped) and self-pruning — the
+  same scan lifecycle as comic and book libraries. Works with no remote source
+  configured; matching is best-effort, so files play even before they match.
 - **Streaming range proxy.** `/api/audiobooks/issue/:id/stream` forwards the
   player's `Range` requests to the source and pipes the `206` through, so a ~1 GB
   file never buffers in memory. The source's credentials stay server-side.
