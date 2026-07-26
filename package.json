@@ -1,6 +1,6 @@
 {
   "name": "audiobooks",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Audiobook library: an Audiobooks library type synced on demand from a remote source, streamed (range proxy) rather than downloaded, with an in-browser player — resume, chapters, playback speed, sleep timer, bookmarks, and per-user listening stats",
   "type": "module",
   "private": true,

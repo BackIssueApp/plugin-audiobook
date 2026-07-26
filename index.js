@@ -163,6 +163,14 @@ export default function register(api) {
   // ---- Listening stats --------------------------------------------------------
   api.registerRoute('get', '/api/audiobooks/stats', (req, res) => res.json(store.stats(uid(req))), { access: CAN_USE });
 
+  // ---- Per-user home rail visibility (synced across devices) ------------------
+  api.registerRoute('get', '/api/audiobooks/home-prefs', (req, res) => {
+    res.json(store.homePrefs(uid(req)));
+  }, { access: CAN_USE });
+  api.registerRoute('post', '/api/audiobooks/home-prefs', (req, res) => {
+    res.json(store.setHomePrefs(uid(req), req.body || {}));
+  }, { access: CAN_USE });
+
   // ---- On-demand catalog sync (curation) -------------------------------------
   api.registerRoute('post', '/api/audiobooks/remote-sync/start', (req, res) => {
     if (isRemoteSyncRunning()) return res.status(409).json({ error: 'A sync is already running.', state: remoteSyncStatus() });

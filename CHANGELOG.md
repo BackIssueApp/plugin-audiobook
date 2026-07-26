@@ -8,6 +8,20 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Added
+
+- **Per-user home rail toggles.** The audiobook home rails (Continue listening,
+  New audiobooks) can each be shown or hidden per user, saved server-side so the
+  choice syncs across every device. New endpoint
+  `GET`/`POST /api/audiobooks/home-prefs`.
+- **Series grouping.** Audiobooks that belong to a series now share one shelf
+  (like books do) instead of each being a standalone entry: the metadata match
+  groups a title into its series by the Audnexus series/position, a remote source
+  can supply the series directly, and the grouping sticks across rescans. Applies
+  to newly scanned / re-synced / re-matched audiobooks.
+
 ## [0.1.0]
 
 ### Added

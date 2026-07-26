@@ -83,6 +83,13 @@ export function openAudiobooksStore(dbPath) {
       total       INTEGER,
       updated_at  TEXT
     );
+
+    -- Per-user visibility of each audiobook home rail (both default on).
+    CREATE TABLE IF NOT EXISTS audiobooks_home_prefs (
+      user_id       INTEGER PRIMARY KEY,
+      show_continue INTEGER NOT NULL DEFAULT 1,
+      show_new      INTEGER NOT NULL DEFAULT 1
+    );
   `);
   // The original table only carried remote (file-less) entries; add the columns
   // a LOCAL scanned file needs (the incremental-skip key + metadata-match state)
@@ -103,6 +110,27 @@ export function openAudiobooksStore(dbPath) {
   const api = {
     db,
 
+    /** Per-user visibility of each audiobook home rail. Both rails default on;
+     *  setHomePrefs takes a partial and merges (mirrors the reader plugin). */
+    homePrefs(userId) {
+      const r = db.prepare('SELECT * FROM audiobooks_home_prefs WHERE user_id=?').get(userId);
+      return {
+        showContinue: r ? !!r.show_continue : true,
+        showNew: r ? !!r.show_new : true,
+      };
+    },
+    setHomePrefs(userId, partial) {
+      const m = { ...this.homePrefs(userId), ...(partial || {}) };
+      db.prepare(`
+        INSERT INTO audiobooks_home_prefs (user_id, show_continue, show_new)
+          VALUES (?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          show_continue = excluded.show_continue,
+          show_new      = excluded.show_new
+      `).run(userId, m.showContinue ? 1 : 0, m.showNew ? 1 : 0);
+      return this.homePrefs(userId);
+    },
+
     /** Catalog a file-less remote audiobook: a self-described `audiobook` series
      *  with one issue, plus the audiobooks_files row carrying the stream identity
      *  (source, remote_id) and audio metadata. Idempotent by (source, remote_id);
@@ -110,7 +138,8 @@ export function openAudiobooksStore(dbPath) {
     catalogRemote({ libraryId, source, remoteId, meta = {} }) {
       const title = meta.title || 'Untitled';
       const author = meta.author || (meta.authors || []).join(', ') || null;
-      const url = seriesUrlFor(libraryId, { title, author });
+      const standalone = !meta.series;
+      const url = seriesUrlFor(libraryId, meta.series ? { series: meta.series } : { title, author });
       const issueUrl = `audiobookremote:${source}:${remoteId}`;
       const year = year4(meta.year);
       const restricted = meta.explicit ? 1 : 0;
@@ -128,12 +157,13 @@ export function openAudiobooksStore(dbPath) {
             description=COALESCE(excluded.description, series.description),
             year=COALESCE(excluded.year, series.year),
             restricted=excluded.restricted`)
-          .run({ title, url, publisher: author, lib: libraryId, description: meta.description || null, year, restricted });
+          .run({ title: standalone ? title : meta.series, url, publisher: author, lib: libraryId,
+            description: standalone ? (meta.description || null) : null, year: standalone ? year : null, restricted });
         const seriesId = seriesByUrl(url).id;
         db.prepare(`INSERT INTO issues (series_id, title, issue_number, url, status, file_path)
-          VALUES (?, ?, '1', ?, 'done', NULL)
-          ON CONFLICT(url) DO UPDATE SET series_id=excluded.series_id, title=excluded.title, status='done'`)
-          .run(seriesId, title, issueUrl);
+          VALUES (?, ?, ?, ?, 'done', NULL)
+          ON CONFLICT(url) DO UPDATE SET series_id=excluded.series_id, title=excluded.title, issue_number=excluded.issue_number, status='done'`)
+          .run(seriesId, title, standalone ? '1' : indexNumber(meta.series_index), issueUrl);
         const issueId = db.prepare('SELECT id FROM issues WHERE url=?').get(issueUrl).id;
         // Point the series cover at this issue's cover route (which redirects to
         // the source thumbnail) — the Library grid and the player both read
@@ -185,7 +215,7 @@ export function openAudiobooksStore(dbPath) {
       const url = seriesUrlFor(libraryId, meta);
       const tx = db.transaction(() => {
         const prev = db.prepare(`SELECT ef.rowid AS ab_rowid, ef.issue_id, ef.match_id,
-            i.series_id AS prev_series_id, i.title AS prev_title
+            i.series_id AS prev_series_id, i.title AS prev_title, i.issue_number AS prev_number
           FROM audiobooks_files ef LEFT JOIN issues i ON i.id = ef.issue_id WHERE ef.path=?`).get(p);
         const prevSeries = prev?.prev_series_id
           ? db.prepare('SELECT * FROM series WHERE id=?').get(prev.prev_series_id) : null;
@@ -193,8 +223,15 @@ export function openAudiobooksStore(dbPath) {
         // filename to offer (strictly worse data).
         const keepTitle = !!(prev?.match_id && meta.title_source === 'filename' && prev.prev_title);
         const issueTitle = keepTitle ? prev.prev_title : title;
+        // The metadata match may have grouped this book into a series (a folder
+        // with no series name of its own). Keep it there across rescans instead of
+        // demoting it back to a standalone shelf.
+        const matchGrouped = !!(prev?.match_id && prevSeries && !isStandalone(prevSeries) && standalone);
+        const issueNum = matchGrouped ? (prev.prev_number || '1') : (standalone ? '1' : indexNumber(meta.series_index));
         let seriesId;
-        if (prevSeries && standalone && isStandalone(prevSeries) && String(prevSeries.url).startsWith(`audiobook:l${libraryId}:`)) {
+        if (matchGrouped) {
+          seriesId = prevSeries.id;
+        } else if (prevSeries && standalone && isStandalone(prevSeries) && String(prevSeries.url).startsWith(`audiobook:l${libraryId}:`)) {
           db.prepare("UPDATE series SET title=?, publisher=COALESCE(?, publisher), type='audiobook', library_id=? WHERE id=?")
             .run(issueTitle, author, libraryId, prevSeries.id);
           seriesId = prevSeries.id;
@@ -212,7 +249,7 @@ export function openAudiobooksStore(dbPath) {
           VALUES (?, ?, ?, ?, 'done', ?)
           ON CONFLICT(url) DO UPDATE SET series_id=excluded.series_id, title=excluded.title,
             issue_number=excluded.issue_number, status='done', file_path=excluded.file_path`)
-          .run(seriesId, issueTitle, standalone ? '1' : indexNumber(meta.series_index), issueUrlFor(p), p);
+          .run(seriesId, issueTitle, issueNum, issueUrlFor(p), p);
         const issueId = db.prepare('SELECT id FROM issues WHERE url=?').get(issueUrlFor(p)).id;
         // A regroup left the old series behind — prune it if now empty.
         if (prevSeries && prevSeries.id !== seriesId) {
@@ -307,9 +344,34 @@ export function openAudiobooksStore(dbPath) {
     applyMatch(issueId, merged) {
       const row = fileByIssue(issueId);
       if (!row) return;
-      const series = db.prepare('SELECT * FROM series WHERE id=?').get(row.series_id);
-      const standalone = isStandalone(series);
+      let series = db.prepare('SELECT * FROM series WHERE id=?').get(row.series_id);
+      if (!series) return;
       const tx = db.transaction(() => {
+        // Series grouping: when the match names a series (Audnexus seriesPrimary)
+        // and this audiobook is a standalone, move its issue onto a shared series
+        // row (creating it if needed), ordered by the book's position, and prune
+        // the vacated standalone — the audio analogue of the ebooks calibre-series
+        // grouping, so e.g. all Harry Potter audiobooks share one shelf.
+        if (merged.series && isStandalone(series)) {
+          const libId = series.library_id;
+          const byline = (Array.isArray(merged.authors) && merged.authors.length) ? merged.authors.join(', ') : (series.publisher || null);
+          const surl = seriesUrlFor(libId, { series: merged.series });
+          db.prepare(`INSERT INTO series (title, url, publisher, type, library_id, restricted)
+              VALUES (@title, @url, @publisher, 'audiobook', @lib, @restricted)
+              ON CONFLICT(url) DO UPDATE SET type='audiobook', library_id=excluded.library_id,
+                publisher=COALESCE(series.publisher, excluded.publisher)`)
+            .run({ title: merged.series, url: surl, publisher: byline, lib: libId, restricted: merged.explicit ? 1 : 0 });
+          const target = seriesByUrl(surl);
+          if (target && target.id !== series.id) {
+            const oldId = series.id;
+            db.prepare('UPDATE issues SET series_id=?, issue_number=? WHERE id=?').run(target.id, indexNumber(merged.series_index), issueId);
+            db.prepare('UPDATE audiobooks_files SET series_id=? WHERE issue_id=?').run(target.id, issueId);
+            const left = db.prepare('SELECT COUNT(*) n FROM issues WHERE series_id=?').get(oldId).n;
+            if (!left) db.prepare("DELETE FROM series WHERE id=? AND url LIKE 'audiobook:l%'").run(oldId);
+            series = target; // all further updates target the grouped row
+          }
+        }
+        const standalone = isStandalone(series);
         if (merged.title) {
           db.prepare('UPDATE issues SET title=? WHERE id=?').run(merged.title, issueId);
           if (standalone) db.prepare('UPDATE series SET title=? WHERE id=?').run(merged.title, series.id);
