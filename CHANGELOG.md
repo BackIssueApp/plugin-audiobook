@@ -8,6 +8,16 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.3]
+
+### Fixed
+
+- **Home rails render sooner at page load.** The rails no longer fetch
+  `/api/status` themselves to find the audiobook library — they reuse the
+  library list the app has already loaded (falling back to fetching on older
+  cores), so at refresh the rails appear as soon as the app itself is ready
+  instead of waiting on a duplicate status round-trip.
+
 ## [0.3.2]
 
 ### Fixed

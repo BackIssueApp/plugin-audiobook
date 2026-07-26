@@ -49,6 +49,17 @@
 
     async function audiobookLibId() {
       if (abLibId !== undefined) return abLibId;
+      // The core SPA fetches /api/status at boot and shares the library list —
+      // duplicating that heavy request here serialized the rails behind it at
+      // refresh. Poll the shared list briefly; only a core too old to expose it
+      // falls back to fetching status directly.
+      if (api.libraries) {
+        for (let i = 0; i < 40; i++) { // up to ~10s for a slow cold boot
+          const libs = api.libraries();
+          if (libs.length) { abLibId = libs.find((l) => l.type === 'audiobook')?.id ?? null; return abLibId; }
+          await new Promise((r) => setTimeout(r, 250));
+        }
+      }
       try { const st = await api.get('/api/status'); abLibId = (st.libraries || []).find((l) => l.type === 'audiobook')?.id ?? null; }
       catch { abLibId = null; }
       return abLibId;
