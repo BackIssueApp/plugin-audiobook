@@ -34,6 +34,131 @@
   window.BackIssue.registerClient((api) => {
     if (api.registerSeriesView) api.registerSeriesView({ type: 'audiobook', render });
 
+    // ---------- home rails ----------
+    // Two audiobook rails, rendered into the core library's #home-plugin-rail
+    // slot (the reader plugin renders its reading shelves there too — each side
+    // owns a display:contents wrapper so they coexist). Per-user visibility is
+    // saved server-side (/api/audiobooks/home-prefs), so it syncs with the apps.
+    const AB_SHELVES = [
+      { key: 'ab-continue', pref: 'showContinue', title: 'Continue listening', facet: '{"status":"reading"}' },
+      { key: 'ab-new',      pref: 'showNew',      title: 'New audiobooks',      facet: null },
+    ];
+    let abLibId;         // undefined = unresolved, null = none
+    let abPrefs = null;
+    const abShelfOn = (s) => (abPrefs && s.pref in abPrefs) ? abPrefs[s.pref] !== false : true;
+
+    async function audiobookLibId() {
+      if (abLibId !== undefined) return abLibId;
+      try { const st = await api.get('/api/status'); abLibId = (st.libraries || []).find((l) => l.type === 'audiobook')?.id ?? null; }
+      catch { abLibId = null; }
+      return abLibId;
+    }
+
+    async function renderAudiobookRails() {
+      const slot = api.slot('home-plugin-rail');
+      if (!slot) return;
+      const libId = await audiobookLibId();
+      if (!libId) return;
+      try { abPrefs = await api.get('/api/audiobooks/home-prefs'); } catch { /* keep last/defaults */ }
+      syncAudiobookPrefs();
+      const shown = AB_SHELVES.filter(abShelfOn);
+      const results = await Promise.all(shown.map((s) => {
+        const q = `/api/collection?library=${libId}&limit=15&offset=0&sort=added`
+          + (s.facet ? `&facet=${encodeURIComponent(s.facet)}` : '');
+        return api.get(q)
+          .then((r) => ({ s, items: Array.isArray(r) ? r : (r.rows || r.items || []) }))
+          .catch(() => ({ s, items: [] }));
+      }));
+      const desired = [];
+      for (const { s, items } of results) if (items.length) desired.push(buildAbRail(s, items));
+      // Own a display:contents wrapper so the reader's rails aren't clobbered and
+      // the slot's inter-rail gap still applies to our sections.
+      let wrap = slot.querySelector('#audiobooks-home-rails');
+      if (!desired.length) { if (wrap) wrap.remove(); return; }
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'audiobooks-home-rails';
+        wrap.style.display = 'contents';
+        slot.appendChild(wrap); // after the reader's reading rails
+      }
+      const existing = new Map([...wrap.children].map((el) => [el.dataset.shelf, el]));
+      const finalNodes = desired.map((next) => {
+        const old = existing.get(next.dataset.shelf);
+        return old && old.innerHTML === next.innerHTML ? old : next;
+      });
+      const unchanged = finalNodes.length === wrap.children.length && finalNodes.every((n, i) => n === wrap.children[i]);
+      if (!unchanged) wrap.replaceChildren(...finalNodes);
+    }
+
+    function buildAbRail(shelf, items) {
+      const sec = document.createElement('section');
+      sec.className = 'ab-rail';
+      sec.dataset.shelf = shelf.key;
+      const head = document.createElement('div');
+      head.className = 'ab-rail__head';
+      const h = document.createElement('span');
+      h.className = 'ab-rail__title';
+      h.textContent = shelf.title;
+      const hide = document.createElement('button');
+      hide.className = 'ab-rail__hide';
+      hide.title = 'Hide this rail — turn it back on from your Profile';
+      hide.setAttribute('aria-label', 'Hide ' + shelf.title);
+      hide.innerHTML = (api.icon && api.icon('close', { size: 16 })) || '×';
+      hide.onclick = () => hideAbShelf(shelf);
+      head.append(h, hide);
+      const track = document.createElement('div');
+      track.className = 'ab-rail__track';
+      for (const it of items) track.appendChild(abCard(it));
+      sec.append(head, track);
+      return sec;
+    }
+
+    function abCard(it) {
+      const el = document.createElement('button');
+      el.className = 'ab-rail__card';
+      el.title = it.title || '';
+      el.innerHTML = `
+        <span class="ab-rail__cover"><img src="${esc(it.cover_url || '')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></span>
+        <span class="ab-rail__label"><b>${esc(it.title || 'Untitled')}</b></span>
+        ${it.publisher ? `<small class="ab-rail__sub">${esc(it.publisher)}</small>` : ''}`;
+      el.onclick = () => { if (api.openSeries) api.openSeries(it.id); };
+      return el;
+    }
+
+    async function hideAbShelf(shelf) {
+      try { abPrefs = await api.post('/api/audiobooks/home-prefs', { [shelf.pref]: false }); } catch { /* retry next render */ }
+      renderAudiobookRails();
+    }
+
+    // Per-user rail toggles on the Profile page (mirrors the reader's shelf prefs).
+    function syncAudiobookPrefs() {
+      const slot = api.slot('profile-plugin-slot');
+      if (!slot) return;
+      let card = slot.querySelector('#audiobooks-rails-prefs');
+      if (!card) {
+        card = document.createElement('section');
+        card.className = 'settings-section';
+        card.id = 'audiobooks-rails-prefs';
+        card.innerHTML = '<p class="modal__subhead">Audiobook rails</p>'
+          + '<p class="modal__note">Which audiobook rails appear on your home screen.</p>'
+          + '<div class="ab-rails-prefs">'
+          + AB_SHELVES.map((s) => `<label class="ab-rails-row"><input type="checkbox" data-pref="${s.pref}"> ${esc(s.title)}</label>`).join('')
+          + '</div>';
+        slot.appendChild(card);
+        card.querySelectorAll('input[data-pref]').forEach((cb) => {
+          cb.onchange = async () => {
+            try { abPrefs = await api.post('/api/audiobooks/home-prefs', { [cb.dataset.pref]: cb.checked }); } catch { /* keep UI */ }
+            renderAudiobookRails();
+          };
+        });
+      }
+      for (const cb of card.querySelectorAll('input[data-pref]')) {
+        cb.checked = abPrefs ? abPrefs[cb.dataset.pref] !== false : true;
+      }
+    }
+
+    renderAudiobookRails();
+
     async function render(container, ctx) {
       const issue = (ctx.issues || [])[0];
       const series = ctx.series || {};
@@ -119,7 +244,7 @@
       });
       audio.addEventListener('timeupdate', paintTime);
       audio.addEventListener('play', () => { toggle.innerHTML = SVG.pause; toggle.title = 'Pause'; saveTimer = setInterval(saveProgress, 10000); });
-      audio.addEventListener('pause', () => { toggle.innerHTML = SVG.play; toggle.title = 'Play'; clearInterval(saveTimer); saveProgress(); });
+      audio.addEventListener('pause', () => { toggle.innerHTML = SVG.play; toggle.title = 'Play'; clearInterval(saveTimer); saveProgress(); renderAudiobookRails(); });
       audio.addEventListener('ended', () => { clearInterval(saveTimer); saveProgress(); });
 
       toggle.onclick = () => { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); };

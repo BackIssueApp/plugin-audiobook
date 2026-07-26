@@ -48,3 +48,25 @@
   .ab-hero { flex-direction: column; align-items: center; text-align: center; }
   .ab-cover { width: 150px; }
 }
+
+/* ---- home rails (rendered into the shared #home-plugin-rail slot) ----
+   Define the slot layout too, so an audiobook-only server (no reader plugin,
+   which normally provides this rule) still spaces the rails. Duplicate-safe. */
+#home-plugin-rail:not(:empty) { display: flex; flex-direction: column; gap: 16px; padding: 14px 18px 6px; }
+.ab-rail { display: flex; flex-direction: column; gap: 8px; }
+.ab-rail__head { display: flex; align-items: center; gap: 8px; }
+.ab-rail__title { font-family: var(--font-display, inherit); font-size: 15px; letter-spacing: 0.03em; color: var(--text); }
+.ab-rail__hide { margin-left: auto; background: none; border: none; color: var(--faint); cursor: pointer; padding: 3px; border-radius: 6px; display: inline-flex; line-height: 1; }
+.ab-rail__hide:hover { color: var(--text); background: var(--panel); }
+.ab-rail__track { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; scroll-snap-type: x proximity; }
+.ab-rail__card { flex: 0 0 auto; width: 116px; display: flex; flex-direction: column; gap: 5px; background: none; border: none; padding: 0; cursor: pointer; text-align: left; color: var(--text); scroll-snap-align: start; font: inherit; }
+.ab-rail__cover { display: block; width: 116px; height: 116px; border-radius: 8px; overflow: hidden; background: var(--panel-2); border: 1px solid var(--line); }
+.ab-rail__cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ab-rail__card:hover .ab-rail__cover { border-color: var(--accent); }
+.ab-rail__card:focus-visible { outline: none; }
+.ab-rail__card:focus-visible .ab-rail__cover { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ab-rail__label { font-size: 12px; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ab-rail__label b { font-weight: 600; }
+.ab-rail__sub { font-size: 11px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ab-rails-prefs { display: flex; flex-direction: column; gap: 8px; }
+.ab-rails-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }

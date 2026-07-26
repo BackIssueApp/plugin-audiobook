@@ -8,6 +8,17 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### Added
+
+- **Home rails on the web app.** Two audiobook rails — Continue listening and
+  New audiobooks — now appear on the web home screen, matching the mobile apps.
+  Each rail can be hidden from its × or toggled per user on the Profile page,
+  saved server-side so visibility syncs across web and mobile. Tapping a cover
+  opens the audiobook. The rails sit alongside the reading rails (they no longer
+  replace one another).
+
 ## [0.2.0]
 
 ### Added
