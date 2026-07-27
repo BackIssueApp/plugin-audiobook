@@ -8,6 +8,16 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.4]
+
+### Fixed
+
+- **iOS playback of some streamed books.** Certain upstream sources declare
+  `application/octet-stream` for audio files; AVPlayer refuses to play an
+  extensionless URL with a generic MIME (ExoPlayer sniffs and doesn't care).
+  The stream proxy now substitutes the catalog's audio type when the
+  upstream's is missing or generic — specific upstream types still win.
+
 ## [0.3.3]
 
 ### Fixed

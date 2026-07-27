@@ -90,6 +90,14 @@ export default function register(api) {
         const v = up.headers?.get ? up.headers.get(h) : up.headers?.[h];
         if (v) res.setHeader(h, v);
       }
+      // Some upstreams declare application/octet-stream for perfectly good
+      // audio. ExoPlayer sniffs bytes and doesn't care; AVPlayer (iOS) trusts
+      // the MIME on our extensionless URL and refuses to play. Substitute our
+      // catalog's format ONLY when the upstream type is missing/generic — a
+      // specific audio/* type from upstream wins (the catalog format can be
+      // wrong the other way).
+      const upCt = String(res.getHeader('content-type') || '').toLowerCase();
+      if (!upCt || upCt.includes('octet-stream')) res.setHeader('Content-Type', mimeFor(row.format));
       if (!res.getHeader('accept-ranges')) res.setHeader('Accept-Ranges', 'bytes');
       res.setHeader('Cache-Control', 'private, max-age=0');
       if (!up.body) return res.end();
