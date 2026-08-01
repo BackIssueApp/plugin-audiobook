@@ -8,6 +8,18 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.5] — 2026-08-01
+
+### Fixed
+
+- **Interrupted audiobook downloads resume instead of restarting.** The
+  stream proxy stripped upstream validators and remote sources often send
+  none — and download clients (the iOS app, browsers, curl -C) only resume
+  an interrupted transfer when the response carries an ETag/Last-Modified.
+  A 1GB book that dropped at 90% restarted from zero. The proxy now
+  forwards upstream validators and synthesizes a stable per-file ETag when
+  the source has none.
+
 ## [0.3.4]
 
 ### Fixed

@@ -86,9 +86,18 @@ export default function register(api) {
     try {
       const up = await src.openStream(null, row.remote_id, { range: req.headers.range || null });
       res.status(up.status || 200);
-      for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
+      for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified']) {
         const v = up.headers?.get ? up.headers.get(h) : up.headers?.[h];
         if (v) res.setHeader(h, v);
+      }
+      // Downloaders (iOS URLSession, browsers, curl -C) only RESUME an
+      // interrupted transfer when the response carries a validator — without
+      // ETag/Last-Modified, a 1GB book that drops at 95% restarts from zero.
+      // Upstream sources often send neither, so synthesize a stable strong
+      // ETag per catalog file (the remote file behind an id is immutable for
+      // our purposes; a re-match writes a new row).
+      if (!res.getHeader('etag') && !res.getHeader('last-modified')) {
+        res.setHeader('ETag', `"ab-${row.source}-${String(row.remote_id).replace(/[^\w.-]/g, '_')}"`);
       }
       // Some upstreams declare application/octet-stream for perfectly good
       // audio. ExoPlayer sniffs bytes and doesn't care; AVPlayer (iOS) trusts
