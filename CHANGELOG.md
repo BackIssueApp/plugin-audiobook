@@ -8,6 +8,16 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.7] — 2026-09-06
+
+### Fixed
+
+- **A sync that found nothing no longer shrinks the catch-up window.** With a
+  source that has no incremental support, a run whose cursor was already past
+  the end recorded itself as "synced now", so a later catch-up (once the
+  source gained incremental support) only looked back a day. Such a run now
+  leaves the bookkeeping alone.
+
 ## [0.3.6] — 2026-09-06
 
 ### Fixed

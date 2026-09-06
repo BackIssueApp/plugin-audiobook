@@ -121,8 +121,12 @@ export async function runRemoteSync({
       // incremental pass right away, so one click brings the catalog current.
       if (remoteSyncState.mode === 'full' && r.clean && r.pagesSeen === 0 && canCatchUp && !stopRequested()) r = await walk(true);
       // A clean finish is what makes the next run incremental; a run that
-      // stopped early resumes from the cursor instead.
-      if (r.clean && typeof store.markRemoteSynced === 'function') {
+      // stopped early resumes from the cursor instead. A full walk that saw
+      // nothing and could not catch up (the source has no incremental
+      // support) proves nothing — recording it as "synced now" would shrink
+      // a later catch-up window to a day and skip everything in between.
+      const sawNothing = remoteSyncState.mode === 'full' && r.pagesSeen === 0;
+      if (r.clean && !sawNothing && typeof store.markRemoteSynced === 'function') {
         // The catalog total is only meaningful from a full walk; an incremental
         // run's total is the size of the change set.
         store.markRemoteSynced(src.id, { at: runStartedAt, complete: true, total: remoteSyncState.mode === 'full' ? (remoteSyncState.total || null) : null });

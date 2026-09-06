@@ -135,3 +135,14 @@ test('a new copy of a book prunes an older copy the source can no longer serve, 
   assert.equal(store.db.prepare("SELECT COUNT(*) n FROM issues WHERE url LIKE 'audiobookremote:fake:old-stone'").get().n, 0, 'the dead entry is gone from the shelf too');
   assert.equal(store.remoteSyncInfo('fake').total, 2, 'an incremental run does not overwrite the catalog total');
 });
+
+test('a full walk that saw nothing and could not catch up leaves the bookkeeping alone', async () => {
+  const { store } = boot();
+  store.setRemoteCursor('plain', 3, 2);
+  store.db.prepare("UPDATE audiobooks_remote_sync SET updated_at='2026-07-26T17:49:56Z' WHERE source='plain'").run();
+  const plain = { id: 'plain', listPage: async (_cfg, page) => ({ items: [], page, totalPages: 2, total: 2 }) }; // no incremental support
+  await runRemoteSync({ store, sources: [plain] });
+  const info = store.remoteSyncInfo('plain');
+  assert.equal(info.synced_at, null, 'not recorded as synced now');
+  assert.equal(info.since.slice(0, 10), '2026-04-27', 'the catch-up window still reaches back from the cursor time');
+});
