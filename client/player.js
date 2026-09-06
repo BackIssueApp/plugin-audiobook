@@ -276,7 +276,12 @@
       // had lost the file looked like a dead button. Now the reason is asked
       // of the server and shown here, under the controls.
       const showNotice = (text) => { noticeEl.textContent = text; noticeEl.hidden = !text; };
+      // One explanation per failure: the element's error event and the play()
+      // rejection both fire, and a dead stream errors on every retry.
+      let explained = false;
       const explainFailure = async () => {
+        if (explained) return;
+        explained = true;
         let reason = '';
         try {
           const r = await fetch(streamUrl, { headers: { Range: 'bytes=0-0' } });
@@ -289,7 +294,7 @@
         api.toast && api.toast(text, 'error');
       };
       audio.addEventListener('error', () => { explainFailure(); });
-      audio.addEventListener('playing', () => { toggle.classList.remove('is-busy'); showNotice(''); });
+      audio.addEventListener('playing', () => { toggle.classList.remove('is-busy'); showNotice(''); explained = false; });
       audio.addEventListener('waiting', () => { if (!audio.paused) toggle.classList.add('is-busy'); });
 
       // Narrators + duration from the info map.

@@ -8,6 +8,14 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.11] — 2026-09-06
+
+### Fixed
+
+- A recording the source cannot serve explained itself once per event — the
+  element's error and the play rejection each raised a toast, and every retry
+  another. One notice per failure now, cleared when playback succeeds.
+
 ## [0.3.10] — 2026-09-06
 
 ### Added
