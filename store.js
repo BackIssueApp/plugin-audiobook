@@ -535,19 +535,36 @@ export function openAudiobooksStore(dbPath) {
       const row = fileByIssue(issueId);
       if (row?.path) { try { deleteLibraryFile(db, row.path); } catch { /* none */ } }
       db.prepare('DELETE FROM audiobooks_files WHERE issue_id=?').run(issueId);
-      // A file-less remote entry is nothing without its plugin row.
-      db.prepare("DELETE FROM issues WHERE id=? AND url LIKE 'audiobookremote:%'").run(issueId);
+      // A file-less remote entry is nothing without its plugin row — and a
+      // shelf it was the only book on is nothing without it.
+      const issue = db.prepare("SELECT series_id FROM issues WHERE id=? AND url LIKE 'audiobookremote:%'").get(issueId);
+      if (issue) {
+        db.prepare('DELETE FROM issues WHERE id=?').run(issueId);
+        db.prepare(`DELETE FROM series WHERE id=? AND url LIKE 'audiobook:%' AND NOT EXISTS (SELECT 1 FROM issues WHERE series_id=?)`).run(issue.series_id, issue.series_id);
+      }
     },
-    /** Other remote entries from the same source that are the same book (same
-     *  series, same title) — the way a re-import shows up next to a record
-     *  whose file has since gone. */
+    /** Other remote entries from the same source and library that are the
+     *  same book (same title) — the way a re-import shows up next to a record
+     *  whose file has since gone. Matched across series on purpose: the old
+     *  record often sat alone on its own shelf (no series info at the time)
+     *  while the new one joined the series. */
     duplicateRemoteEntries(source, remoteId) {
       return db.prepare(`SELECT f2.issue_id, f2.remote_id
         FROM audiobooks_files f1
         JOIN issues i1 ON i1.id = f1.issue_id
-        JOIN issues i2 ON i2.series_id = i1.series_id AND i2.id <> i1.id AND lower(trim(i2.title)) = lower(trim(i1.title))
-        JOIN audiobooks_files f2 ON f2.issue_id = i2.id AND f2.source = f1.source AND f2.path IS NULL
+        JOIN audiobooks_files f2 ON f2.source = f1.source AND f2.library_id = f1.library_id AND f2.issue_id <> f1.issue_id AND f2.path IS NULL
+        JOIN issues i2 ON i2.id = f2.issue_id AND lower(trim(i2.title)) = lower(trim(i1.title))
         WHERE f1.source = ? AND f1.remote_id = ?`).all(source, String(remoteId));
+    },
+    /** Entries already known to be unavailable that have a same-titled twin
+     *  which is not — candidates for the end-of-sync sweep. */
+    unavailableWithTwin(source) {
+      return db.prepare(`SELECT DISTINCT f1.issue_id, f1.remote_id, f2.issue_id AS twin_issue_id, f2.remote_id AS twin_remote_id
+        FROM audiobooks_files f1
+        JOIN issues i1 ON i1.id = f1.issue_id
+        JOIN audiobooks_files f2 ON f2.source = f1.source AND f2.library_id = f1.library_id AND f2.issue_id <> f1.issue_id AND f2.path IS NULL AND f2.unavailable_at IS NULL
+        JOIN issues i2 ON i2.id = f2.issue_id AND lower(trim(i2.title)) = lower(trim(i1.title))
+        WHERE f1.source = ? AND f1.path IS NULL AND f1.unavailable_at IS NOT NULL`).all(source);
     },
   };
   return api;

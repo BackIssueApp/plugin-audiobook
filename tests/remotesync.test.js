@@ -146,3 +146,42 @@ test('a full walk that saw nothing and could not catch up leaves the bookkeeping
   assert.equal(info.synced_at, null, 'not recorded as synced now');
   assert.equal(info.since.slice(0, 10), '2026-04-27', 'the catch-up window still reaches back from the cursor time');
 });
+
+test('a dead record on its own shelf is pruned when the same book arrives inside a series, and the empty shelf goes with it', async () => {
+  const { store } = boot();
+  const gone = new Set(['old-goblet']);
+  const src = {
+    id: 'fake', incremental: true,
+    listPage: async (_cfg, page, opts = {}) => {
+      if (opts.updatedAfter) return { items: [{ ...book('new-goblet', 'Goblet of Fire (Full-Cast)'), series: 'Harry Potter (Full-Cast Editions)', series_index: 4 }], page: 1, totalPages: 1, total: 1 };
+      return page === 1 ? { items: [book('old-goblet', 'Goblet of Fire (Full-Cast)')], page: 1, totalPages: 1, total: 1 } : { items: [], page, totalPages: 1, total: 1 }; // no series info back then
+    },
+    openStream: async (_cfg, remoteId) => (gone.has(remoteId) ? { status: 404, body: null } : { status: 206, body: { cancel: async () => {} } }),
+  };
+  await runRemoteSync({ store, sources: [src] });
+  const oldSeries = store.db.prepare("SELECT s.id, s.title FROM series s JOIN issues i ON i.series_id = s.id JOIN audiobooks_files f ON f.issue_id = i.id WHERE f.remote_id='old-goblet'").get();
+  assert.equal(oldSeries.title, 'Goblet of Fire (Full-Cast)', 'standalone shelf named after the book');
+  await runRemoteSync({ store, sources: [src] });
+  assert.equal(remoteSyncStatus().pruned, 1);
+  assert.deepEqual(store.db.prepare("SELECT remote_id FROM audiobooks_files WHERE source='fake'").all().map((r) => r.remote_id), ['new-goblet']);
+  assert.equal(store.db.prepare('SELECT COUNT(*) n FROM series WHERE id=?').get(oldSeries.id).n, 0, 'the empty shelf is removed');
+});
+
+test('the end-of-sync sweep removes entries a play attempt proved dead when their twin still streams', async () => {
+  const { store } = boot();
+  const gone = new Set(); // the file disappears AFTER both were cataloged
+  const src = {
+    id: 'fake', incremental: true,
+    listPage: async (_cfg, page, opts = {}) => (opts.updatedAfter || page > 1) ? { items: [], page, totalPages: 1, total: 2 }
+      : { items: [book('dead', 'Same Book'), { ...book('live', 'Same Book'), series: 'A Series', series_index: 1 }], page: 1, totalPages: 1, total: 2 },
+    openStream: async (_cfg, remoteId) => (gone.has(remoteId) ? { status: 404, body: null } : { status: 206, body: { cancel: async () => {} } }),
+  };
+  await runRemoteSync({ store, sources: [src] }); // both cataloged; the dead one was never probed (nothing new arrived beside it)
+  assert.equal(store.db.prepare("SELECT COUNT(*) n FROM audiobooks_files WHERE source='fake'").get().n, 2);
+  gone.add('dead');
+  const deadIssue = store.db.prepare("SELECT issue_id FROM audiobooks_files WHERE remote_id='dead'").get().issue_id;
+  store.markUnavailable(deadIssue, 'Audiobook file not found in storage'); // what a play attempt records
+  await runRemoteSync({ store, sources: [src] });
+  assert.equal(remoteSyncStatus().pruned, 1);
+  assert.deepEqual(store.db.prepare("SELECT remote_id FROM audiobooks_files WHERE source='fake'").all().map((r) => r.remote_id), ['live']);
+});

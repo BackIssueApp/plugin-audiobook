@@ -8,6 +8,17 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.8] — 2026-09-06
+
+### Fixed
+
+- **Dead duplicates are pruned across shelves.** An older record that sat on
+  its own shelf (no series information at the time) was not recognised as the
+  twin of the re-imported copy inside the series, so the dead one stayed and
+  was the one people tapped. Twins are now matched by title within the
+  library, an emptied shelf is removed with its last book, and each sync also
+  sweeps entries a play attempt already proved dead whose twin still streams.
+
 ## [0.3.7] — 2026-09-06
 
 ### Fixed

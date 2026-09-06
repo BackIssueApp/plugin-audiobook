@@ -120,6 +120,24 @@ export async function runRemoteSync({
       // anything added since sits behind the cursor. Follow it with the
       // incremental pass right away, so one click brings the catalog current.
       if (remoteSyncState.mode === 'full' && r.clean && r.pagesSeen === 0 && canCatchUp && !stopRequested()) r = await walk(true);
+      // Entries a play attempt already proved dead, whose twin still streams:
+      // drop them now rather than waiting for a re-import to arrive.
+      if (!stopRequested() && typeof store.unavailableWithTwin === 'function' && typeof src.openStream === 'function') {
+        const checked = new Set();
+        for (const d of store.unavailableWithTwin(src.id)) {
+          if (checked.has(d.issue_id)) continue;
+          checked.add(d.issue_id);
+          try {
+            const twin = await src.openStream(null, d.twin_remote_id, { range: 'bytes=0-0' });
+            const twinOk = twin?.status >= 200 && twin?.status < 300;
+            try { if (twin?.body?.cancel) await twin.body.cancel(); else twin?.body?.destroy?.(); } catch { /* fine */ }
+            if (!twinOk) continue;
+            const dead = await src.openStream(null, d.remote_id, { range: 'bytes=0-0' });
+            if (dead?.status === 404 || dead?.status === 410) { store.removeIssue(d.issue_id); remoteSyncState.pruned++; }
+            else { try { if (dead?.body?.cancel) await dead.body.cancel(); else dead?.body?.destroy?.(); } catch { /* fine */ } if (dead?.status >= 200 && dead?.status < 300) store.markAvailable?.(d.issue_id); }
+          } catch { /* source unreachable: next time */ }
+        }
+      }
       // A clean finish is what makes the next run incremental; a run that
       // stopped early resumes from the cursor instead. A full walk that saw
       // nothing and could not catch up (the source has no incremental
