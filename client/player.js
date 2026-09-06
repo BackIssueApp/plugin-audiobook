@@ -204,6 +204,7 @@
             <button class="ab-btn ab-btn--main ab-toggle" title="Play">${SVG.play}</button>
             <button class="ab-btn ab-fwd" title="Forward 15s">${SVG.fwd15}</button>
           </div>
+          <div class="ab-notice" role="alert" hidden></div>
 
           <div class="ab-bar">
             <button class="ab-chip ab-speed">${SVG.speed}<span class="ab-speed__v">1×</span></button>
@@ -223,7 +224,29 @@
       const seek = $('.ab-seek');
       const toggle = $('.ab-toggle');
       const curEl = $('.ab-cur'), remEl = $('.ab-rem'), durEl = $('.ab-dur'), narrEl = $('.ab-narr');
+      const noticeEl = $('.ab-notice');
       let duration = 0, seeking = false, saveTimer = null, sleepTimer = null, chapters = null;
+
+      // Playback failures used to vanish: play() rejected into a swallowed
+      // catch and the element's error event went unheard, so a source that
+      // had lost the file looked like a dead button. Now the reason is asked
+      // of the server and shown here, under the controls.
+      const showNotice = (text) => { noticeEl.textContent = text; noticeEl.hidden = !text; };
+      const explainFailure = async () => {
+        let reason = '';
+        try {
+          const r = await fetch(streamUrl, { headers: { Range: 'bytes=0-0' } });
+          if (r.status >= 400) { try { reason = (await r.json())?.error || ''; } catch { /* not json */ } reason = reason || `the server answered ${r.status}`; }
+          else if (r.body) { try { await r.body.cancel(); } catch { /* fine */ } }
+        } catch { reason = 'the app could not be reached'; }
+        const text = reason ? `Can't play this right now: ${reason}.` : 'Can\'t play this right now — the browser could not decode the stream.';
+        showNotice(text);
+        toggle.classList.remove('is-busy');
+        api.toast && api.toast(text, 'error');
+      };
+      audio.addEventListener('error', () => { explainFailure(); });
+      audio.addEventListener('playing', () => { toggle.classList.remove('is-busy'); showNotice(''); });
+      audio.addEventListener('waiting', () => { if (!audio.paused) toggle.classList.add('is-busy'); });
 
       // Narrators + duration from the info map.
       try {
@@ -231,6 +254,7 @@
         const meta = info[id] || {};
         if (meta.narrators) narrEl.textContent = 'Read by ' + meta.narrators;
         if (meta.duration) { duration = meta.duration; durEl.textContent = fmt(meta.duration) + ' • audiobook'; }
+        if (meta.unavailable) showNotice(`This title isn't available from its source right now${meta.unavailableReason ? ': ' + meta.unavailableReason : ''}. Press play to try again.`);
       } catch { /* non-fatal */ }
 
       // Resume position.
@@ -260,7 +284,11 @@
       audio.addEventListener('pause', () => { toggle.innerHTML = SVG.play; toggle.title = 'Play'; clearInterval(saveTimer); saveProgress(); renderAudiobookRails(); });
       audio.addEventListener('ended', () => { clearInterval(saveTimer); saveProgress(); });
 
-      toggle.onclick = () => { if (audio.paused) audio.play().catch(() => {}); else audio.pause(); };
+      toggle.onclick = () => {
+        if (!audio.paused) { audio.pause(); return; }
+        toggle.classList.add('is-busy'); // connecting: a slow source should not look dead either
+        audio.play().catch((e) => { if (e?.name === 'AbortError') { toggle.classList.remove('is-busy'); return; } explainFailure(); });
+      };
       $('.ab-back').onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 15); paintTime(); };
       $('.ab-fwd').onclick = () => { audio.currentTime = Math.min((duration || audio.duration || 0), audio.currentTime + 15); paintTime(); };
       seek.addEventListener('input', () => { seeking = true; const dur = duration || audio.duration || 0; curEl.textContent = fmt((seek.value / 1000) * dur); });

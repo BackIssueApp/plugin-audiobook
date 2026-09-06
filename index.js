@@ -85,6 +85,16 @@ export default function register(api) {
     if (!src) return res.status(404).end();
     try {
       const up = await src.openStream(null, row.remote_id, { range: req.headers.range || null });
+      // The source no longer has the file (its record outlived the bytes):
+      // say so in words the player can show, and remember it so the title
+      // reads as unavailable before the next tap.
+      if (up.status === 404 || up.status === 410) {
+        let reason = 'the source no longer has this file';
+        try { const body = up.body?.pipe ? null : (up.body ? await new Response(up.body).text() : ''); const j = body ? JSON.parse(body) : null; if (j?.error) reason = String(j.error); } catch { /* keep the generic reason */ }
+        store.markUnavailable?.(issueId, reason);
+        return res.status(404).json({ error: reason, unavailable: true });
+      }
+      if (up.status >= 200 && up.status < 300 && row.unavailable_at) store.markAvailable?.(issueId);
       res.status(up.status || 200);
       for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified']) {
         const v = up.headers?.get ? up.headers.get(h) : up.headers?.[h];

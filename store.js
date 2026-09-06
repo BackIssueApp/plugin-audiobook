@@ -98,8 +98,17 @@ export function openAudiobooksStore(dbPath) {
   for (const [col, decl] of [
     ['mtime', 'INTEGER'], ['title_source', 'TEXT'],
     ['match_id', 'TEXT'], ['match_confidence', 'TEXT'], ['match_checked_at', 'TEXT'],
+    // A remote title the source could not serve (its file is gone): when, and
+    // what it said. Cleared the moment a stream succeeds again.
+    ['unavailable_at', 'TEXT'], ['unavailable_reason', 'TEXT'],
   ]) {
     if (!abCols.includes(col)) db.exec(`ALTER TABLE audiobooks_files ADD COLUMN ${col} ${decl}`);
+  }
+  // Sync bookkeeping beyond the page cursor: when the last run finished, and
+  // whether a full walk has ever completed (after which runs are incremental).
+  const rsCols = db.prepare("SELECT name FROM pragma_table_info('audiobooks_remote_sync')").all().map((r) => r.name);
+  for (const [col, decl] of [['synced_at', 'TEXT'], ['complete', 'INTEGER NOT NULL DEFAULT 0']]) {
+    if (!rsCols.includes(col)) db.exec(`ALTER TABLE audiobooks_remote_sync ADD COLUMN ${col} ${decl}`);
   }
 
   const seriesByUrl = (url) => db.prepare('SELECT * FROM series WHERE url=?').get(url);
@@ -435,11 +444,12 @@ export function openAudiobooksStore(dbPath) {
       const out = {};
       const ids = (issueIds || []).map(Number).filter(Boolean);
       if (!ids.length) return out;
-      const q = db.prepare(`SELECT issue_id, format, duration, narrators, source, path FROM audiobooks_files
+      const q = db.prepare(`SELECT issue_id, format, duration, narrators, source, path, unavailable_at, unavailable_reason FROM audiobooks_files
         WHERE issue_id IN (${ids.map(() => '?').join(',')})`);
       for (const r of q.all(...ids)) out[r.issue_id] = {
         format: r.format, duration: r.duration, narrators: r.narrators,
         remote: !!r.source && !r.path, audiobook: true,
+        unavailable: !!r.unavailable_at, unavailableReason: r.unavailable_reason || null,
       };
       return out;
     },
@@ -485,11 +495,39 @@ export function openAudiobooksStore(dbPath) {
       const r = db.prepare('SELECT cursor_page FROM audiobooks_remote_sync WHERE source=?').get(source);
       return r ? r.cursor_page : 1;
     },
+    /** Everything the sync needs to pick a mode: the page cursor, whether a
+     *  full walk has completed, and when the last run finished. `since` is the
+     *  point an incremental run should ask the source for: the last finish,
+     *  or — for a DB from before this bookkeeping existed — the cursor's last
+     *  touch with a generous margin, so nothing in between is missed. */
+    remoteSyncInfo(source) {
+      const r = db.prepare('SELECT cursor_page, total, updated_at, synced_at, complete FROM audiobooks_remote_sync WHERE source=?').get(source);
+      if (!r) return { cursor_page: 1, total: null, complete: false, synced_at: null, since: null };
+      const since = r.synced_at
+        ? new Date(Date.parse(r.synced_at) - 24 * 3600 * 1000).toISOString()
+        : (r.updated_at ? new Date(Date.parse(r.updated_at) - 90 * 24 * 3600 * 1000).toISOString() : null);
+      return { cursor_page: r.cursor_page, total: r.total, complete: !!r.complete, synced_at: r.synced_at || null, since };
+    },
     setRemoteCursor(source, page, total) {
       db.prepare(`INSERT INTO audiobooks_remote_sync (source, cursor_page, total, updated_at)
         VALUES (@s, @p, @t, @now)
         ON CONFLICT(source) DO UPDATE SET cursor_page=@p, total=COALESCE(@t, audiobooks_remote_sync.total), updated_at=@now`)
         .run({ s: source, p: page, t: total ?? null, now: nownow() });
+    },
+    /** A run finished cleanly (full walk or incremental): remember when, and
+     *  that the source is fully walked from here on. */
+    markRemoteSynced(source, { at = null, complete = true, total = null } = {}) {
+      db.prepare(`INSERT INTO audiobooks_remote_sync (source, cursor_page, total, updated_at, synced_at, complete)
+        VALUES (@s, 1, @t, @now, @at, @c)
+        ON CONFLICT(source) DO UPDATE SET synced_at=@at, complete=@c, total=COALESCE(@t, audiobooks_remote_sync.total), updated_at=@now`)
+        .run({ s: source, t: total ?? null, now: nownow(), at: at || nownow(), c: complete ? 1 : 0 });
+    },
+    /** The source could not serve this title (file gone upstream). */
+    markUnavailable(issueId, reason = null) {
+      db.prepare('UPDATE audiobooks_files SET unavailable_at=?, unavailable_reason=? WHERE issue_id=?').run(nownow(), reason ? String(reason).slice(0, 200) : null, issueId);
+    },
+    markAvailable(issueId) {
+      db.prepare('UPDATE audiobooks_files SET unavailable_at=NULL, unavailable_reason=NULL WHERE issue_id=? AND unavailable_at IS NOT NULL').run(issueId);
     },
 
     /** Remove an audiobook entry (issue + plugin row + any library_file). */
@@ -497,6 +535,19 @@ export function openAudiobooksStore(dbPath) {
       const row = fileByIssue(issueId);
       if (row?.path) { try { deleteLibraryFile(db, row.path); } catch { /* none */ } }
       db.prepare('DELETE FROM audiobooks_files WHERE issue_id=?').run(issueId);
+      // A file-less remote entry is nothing without its plugin row.
+      db.prepare("DELETE FROM issues WHERE id=? AND url LIKE 'audiobookremote:%'").run(issueId);
+    },
+    /** Other remote entries from the same source that are the same book (same
+     *  series, same title) — the way a re-import shows up next to a record
+     *  whose file has since gone. */
+    duplicateRemoteEntries(source, remoteId) {
+      return db.prepare(`SELECT f2.issue_id, f2.remote_id
+        FROM audiobooks_files f1
+        JOIN issues i1 ON i1.id = f1.issue_id
+        JOIN issues i2 ON i2.series_id = i1.series_id AND i2.id <> i1.id AND lower(trim(i2.title)) = lower(trim(i1.title))
+        JOIN audiobooks_files f2 ON f2.issue_id = i2.id AND f2.source = f1.source AND f2.path IS NULL
+        WHERE f1.source = ? AND f1.remote_id = ?`).all(source, String(remoteId));
     },
   };
   return api;

@@ -70,3 +70,9 @@
 .ab-rail__sub { font-size: 11px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ab-rails-prefs { display: flex; flex-direction: column; gap: 8px; }
 .ab-rails-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+
+/* Playback problems, said out loud under the controls. */
+.ab-notice { margin: 10px auto 0; max-width: 520px; text-align: center; font-size: 13px; line-height: 1.45; color: var(--red, #ff6b6b); }
+.ab-toggle.is-busy { animation: ab-pulse 1s ease-in-out infinite; }
+@keyframes ab-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .ab-toggle.is-busy { animation: none; opacity: .6; } }

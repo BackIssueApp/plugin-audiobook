@@ -8,6 +8,28 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.6] — 2026-09-06
+
+### Fixed
+
+- **Catalog sync sees new titles again.** A remote source that lists newest
+  first put everything added after the first full walk on page 1, behind the
+  page cursor, so nothing new ever reached the shelf. Once a full walk has
+  completed, a source that supports it is now asked only for what changed
+  since the last run (`listPage(page, { updatedAfter })`, declared with
+  `incremental: true`), and one click on Sync catches the catalog up — a
+  pre-existing catalog gets a ninety-day overlap on its first run so nothing
+  in between is missed. Sources without that support keep the cursor walk.
+- **The player says why it cannot play.** A failed stream used to leave the
+  play button silent. The player now asks the server what went wrong and
+  shows it under the controls, with a busy state while a slow source
+  connects. A title the source can no longer serve (its file is gone) is
+  remembered as unavailable and says so before the next tap; it clears the
+  moment a stream succeeds again.
+- **Dead duplicates are pruned.** When a re-imported copy of a book arrives
+  next to an older record the source can no longer serve, the sync removes
+  the dead one, so the shelf does not show the same book twice.
+
 ## [0.3.5] — 2026-08-01
 
 ### Fixed
