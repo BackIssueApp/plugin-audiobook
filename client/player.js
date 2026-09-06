@@ -18,6 +18,24 @@
     clock: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
     mark: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
     speed: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>',
+    mic: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg>',
+    caret: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+    clockSm: '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>',
+    playSm: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none"><path d="M7 4v16l13-8z"/></svg>',
+    check: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    ban: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+  };
+  // "1h 05m" — for facts, where a clock reading would be noise.
+  const fmtDur = (sec) => { const n = Math.max(0, Math.floor(Number(sec) || 0)); const h = Math.floor(n / 3600), m = Math.round((n % 3600) / 60); return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`; };
+  // The series page re-renders this view when its issue list refreshes, and
+  // each render's <audio> reports the same failure — one toast is enough.
+  let lastToast = { text: '', at: 0 };
+  const toastOnce = (api, text, kind = 'error') => {
+    if (!api?.toast) return;
+    if (text === lastToast.text && Date.now() - lastToast.at < 8000) return;
+    lastToast = { text, at: Date.now() };
+    api.toast(text, kind);
   };
   const SPEEDS = [0.8, 1, 1.15, 1.25, 1.5, 1.75, 2];
   const SLEEP_MINS = [5, 15, 30, 45, 60];
@@ -182,46 +200,90 @@
 
       // Several recordings on one shelf — editions of the same title (different
       // narrators, lengths, formats), or a series without per-book pages. The
-      // player used to load the first and hide the rest: list them, remember
-      // the pick per shelf, and play the chosen one.
-      container.innerHTML = '<div class="ab-shelf"></div><div class="ab-shelfplayer"></div>';
-      const list = container.querySelector('.ab-shelf');
-      const slot = container.querySelector('.ab-shelfplayer');
+      // hero carries a switcher naming the loaded recording; it opens a list
+      // of all of them, with each one's own progress. The pick is remembered
+      // per shelf; a fresh visit starts on the first one the source can serve.
       let info = {};
       try { info = (await ctx.get(`/api/audiobooks/info?issues=${issues.map((i) => i.id).join(',')}`)).info || {}; } catch { /* rows still list */ }
+      const progress = {};
+      await Promise.all(issues.map(async (i) => { try { progress[i.id] = await ctx.get(`/api/audiobooks/issue/${i.id}/progress`); } catch { progress[i.id] = null; } }));
       const key = `ab-pick:${ctx.series?.id ?? ''}`;
       let remembered = null;
       try { remembered = Number(localStorage.getItem(key)) || null; } catch { /* private mode */ }
       const firstLive = issues.find((i) => !info[i.id]?.unavailable) || issues[0];
-      let current = issues.find((i) => i.id === remembered) || firstLive;
-      const paint = () => {
-        list.innerHTML = `<div class="ab-shelf__head">${issues.length} recordings on this shelf</div>` + issues.map((it) => {
-          const m = info[it.id] || {};
-          const meta = [m.narrators ? 'Read by ' + m.narrators : null, m.duration ? fmt(m.duration) : null, m.format ? String(m.format).toUpperCase() : null].filter(Boolean).join(' · ');
-          const active = it.id === current.id;
-          return `<button type="button" class="ab-shelf__row${active ? ' is-active' : ''}${m.unavailable ? ' is-dead' : ''}" data-id="${it.id}" aria-pressed="${active}">
-            <span class="ab-shelf__mark">${active ? SVG.play : ''}</span>
-            <span class="ab-shelf__text"><span class="ab-shelf__title">${esc(it.title || ('#' + (it.issue_number ?? '?')))}</span>${meta ? `<span class="ab-shelf__meta">${esc(meta)}</span>` : ''}</span>
-            ${m.unavailable ? '<span class="ab-shelf__tag" title="' + esc(m.unavailableReason || 'the source no longer has this file') + '">Unavailable</span>' : ''}
-          </button>`;
-        }).join('');
-        list.querySelectorAll('.ab-shelf__row').forEach((b) => {
-          b.onclick = () => {
-            const it = issues.find((i) => String(i.id) === b.dataset.id);
-            if (!it || it.id === current.id) return;
-            try { slot.querySelector('audio')?.pause(); } catch { /* fine */ }
-            current = it;
-            try { localStorage.setItem(key, String(it.id)); } catch { /* private mode */ }
-            paint();
-            renderPlayer(slot, ctx, it);
-          };
-        });
+      const shelf = {
+        issues, info, progress,
+        current: issues.find((i) => i.id === remembered) || firstLive,
+        pick(id) {
+          const it = issues.find((i) => i.id === id);
+          if (!it || it.id === shelf.current.id) return;
+          try { container.querySelector('audio')?.pause(); } catch { /* fine */ }
+          shelf.current = it;
+          try { localStorage.setItem(key, String(it.id)); } catch { /* private mode */ }
+          renderPlayer(container, ctx, it, shelf);
+        },
       };
-      paint();
-      return renderPlayer(slot, ctx, current);
+      return renderPlayer(container, ctx, shelf.current, shelf);
     }
 
-    async function renderPlayer(container, ctx, issue) {
+    // One recording's facts for the switcher, from the info map + progress.
+    function versionFacts(shelf, it) {
+      const m = shelf.info[it.id] || {};
+      const p = shelf.progress[it.id] || {};
+      const duration = Number(m.duration) || Number(p.duration) || 0;
+      const pos = Number(p.position) || 0;
+      const frac = duration ? Math.min(1, pos / duration) : 0;
+      const narr = m.narrators || 'Unknown narrator';
+      const fullCast = /full[- ]?cast/i.test(narr) || /full[- ]?cast/i.test(it.title || '');
+      return { id: it.id, narr, duration, pos, frac, started: frac > 0.005 && frac < 0.995, dead: !!m.unavailable, deadReason: m.unavailableReason || 'the source no longer has this file', format: m.format ? String(m.format).toUpperCase() : '', fullCast, title: it.title || '' };
+    }
+
+    // "Gemma Whelan, Hugh Laurie +13" — a full cast runs to fifteen names.
+    function shortNames(narr, keep = 2) {
+      const names = String(narr || '').split(',').map((n) => n.trim()).filter(Boolean);
+      if (names.length <= keep + 1) return names.join(', ');
+      return `${names.slice(0, keep).join(', ')} +${names.length - keep}`;
+    }
+
+    function versionSwitcherHtml(shelf) {
+      const all = shelf.issues.map((it) => versionFacts(shelf, it));
+      const cur = all.find((v) => v.id === shelf.current.id) || all[0];
+      // Editions of one title differ by narrator; a series shelf differs by
+      // book. Lead with whichever tells them apart.
+      const byBook = new Set(all.map((v) => v.title.trim().toLowerCase())).size > 1;
+      const lead = (v) => (byBook ? v.title || v.narr : v.narr);
+      const sub = (v) => (byBook ? v.narr : '');
+      const longest = Math.max(...all.map((v) => v.duration));
+      const flagFor = (v) => v.dead ? ['Unavailable', 'dead'] : v.fullCast ? ['Full cast', 'cast'] : (v.duration && v.duration === longest && all.length > 1) ? ['Longest', 'plain'] : null;
+      const rows = all.map((v) => {
+        const active = v.id === cur.id;
+        const flag = flagFor(v);
+        const mark = v.dead ? SVG.ban : active ? SVG.playSm : v.started ? SVG.check : '';
+        const markCls = v.dead ? 'is-dead' : active ? 'is-active' : v.started ? 'is-started' : '';
+        return `<button type="button" class="ab-verrow${active ? ' is-active' : ''}${v.dead ? ' is-dead' : ''}" data-id="${v.id}" ${v.dead ? 'aria-disabled="true"' : ''} aria-pressed="${active}">
+          <span class="ab-verrow__mark ${markCls}">${mark}</span>
+          <span class="ab-verrow__body">
+            <span class="ab-verrow__head"><span class="ab-verrow__narr">${esc(lead(v))}</span>${flag ? `<span class="ab-verflag ab-verflag--${flag[1]}">${flag[0]}</span>` : ''}</span>
+            ${sub(v) ? `<span class="ab-verrow__sub">Read by ${esc(sub(v))}</span>` : ''}
+            <span class="ab-verrow__facts">${v.duration ? `<span class="ab-verrow__fact">${SVG.clockSm}${esc(fmtDur(v.duration))}</span>` : ''}${v.format ? `<span class="ab-verrow__sep">·</span><span>${esc(v.format)}</span>` : ''}</span>
+            ${v.started && !v.dead ? `<span class="ab-verrow__prog"><span class="ab-verrow__track"><span class="ab-verrow__fill" style="width:${Math.round(v.frac * 100)}%"></span></span><span class="ab-verrow__progtext">${Math.round(v.frac * 100)}% · ${esc(fmtDur(v.duration - v.pos))} left</span></span>` : ''}
+            ${v.dead ? `<span class="ab-verrow__dead">${esc(v.deadReason)}</span>` : ''}
+          </span>
+        </button>`;
+      }).join('');
+      return `<button type="button" class="ab-ver${cur.fullCast ? ' ab-ver--cast' : ''}" aria-expanded="false" aria-haspopup="listbox" title="Choose a recording">
+          <span class="ab-ver__ico">${SVG.mic}</span>
+          <span class="ab-ver__text"><span class="ab-ver__narr">${esc(lead(cur))}</span><span class="ab-ver__meta">${esc([byBook ? shortNames(cur.narr) : '', cur.duration ? fmtDur(cur.duration) : '', cur.format].filter(Boolean).join(' · '))}</span></span>
+          <span class="ab-ver__count">${all.length} ${byBook ? 'recordings' : 'versions'}</span>
+          <span class="ab-ver__caret">${SVG.caret}</span>
+        </button>
+        <div class="ab-verpop" role="listbox" hidden>
+          <div class="ab-verpop__head"><span>Choose a recording</span><span class="ab-verpop__note">remembered per shelf</span></div>
+          <div class="ab-verpop__list">${rows}</div>
+        </div>`;
+    }
+
+    async function renderPlayer(container, ctx, issue, shelf = null) {
       const series = ctx.series || {};
       const id = issue.id;
       const streamUrl = `/api/audiobooks/issue/${id}/stream`;
@@ -235,6 +297,7 @@
             <div class="ab-meta">
               <h2 class="ab-title">${esc(series.title || 'Audiobook')}</h2>
               ${by ? `<div class="ab-author">${esc(by)}</div>` : ''}
+              ${shelf ? versionSwitcherHtml(shelf) : ''}
               <div class="ab-narr"></div>
               <div class="ab-dur"></div>
             </div>
@@ -248,7 +311,7 @@
             <button class="ab-btn ab-btn--main ab-toggle" title="Play">${SVG.play}</button>
             <button class="ab-btn ab-fwd" title="Forward 15s">${SVG.fwd15}</button>
           </div>
-          <div class="ab-notice" role="alert" hidden></div>
+          <div class="ab-notice" role="alert" hidden><span class="ab-notice__ico">${SVG.alert}</span><span class="ab-notice__text"></span></div>
 
           <div class="ab-bar">
             <button class="ab-chip ab-speed">${SVG.speed}<span class="ab-speed__v">1×</span></button>
@@ -275,7 +338,33 @@
       // catch and the element's error event went unheard, so a source that
       // had lost the file looked like a dead button. Now the reason is asked
       // of the server and shown here, under the controls.
-      const showNotice = (text) => { noticeEl.textContent = text; noticeEl.hidden = !text; };
+      // The next recording on this shelf the source can serve (for "play that instead").
+      const altVersion = () => shelf ? shelf.issues.map((it) => versionFacts(shelf, it)).find((v) => v.id !== issue.id && !v.dead) || null : null;
+      const showNotice = (text) => {
+        noticeEl.querySelector('.ab-notice__text').textContent = text;
+        noticeEl.querySelector('.ab-notice__alt')?.remove();
+        const alt = text ? altVersion() : null;
+        if (alt) {
+          const b = document.createElement('button');
+          const byBook = shelf.issues.length > 1 && new Set(shelf.issues.map((it) => String(it.title || '').trim().toLowerCase())).size > 1;
+          b.type = 'button'; b.className = 'ab-notice__alt'; b.textContent = `Play ${byBook && alt.title ? alt.title : shortNames(alt.narr)}`;
+          b.onclick = () => shelf.pick(alt.id);
+          noticeEl.appendChild(b);
+        }
+        noticeEl.hidden = !text;
+      };
+      // Version switcher: open/close, pick, close on outside click or Escape.
+      const verBtn = $('.ab-ver'), verPop = $('.ab-verpop');
+      if (verBtn && verPop) {
+        const setOpen = (open) => { verPop.hidden = !open; verBtn.setAttribute('aria-expanded', String(open)); verBtn.classList.toggle('is-open', open); };
+        verBtn.onclick = () => setOpen(verPop.hidden);
+        verPop.querySelectorAll('.ab-verrow').forEach((row) => {
+          row.onclick = () => { if (row.classList.contains('is-dead')) return; setOpen(false); shelf.pick(Number(row.dataset.id)); };
+        });
+        const away = (e) => { if (!container.contains(e.target) || (!verPop.contains(e.target) && !verBtn.contains(e.target))) setOpen(false); };
+        document.addEventListener('click', away, true);
+        container.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !verPop.hidden) { setOpen(false); verBtn.focus(); } });
+      }
       // One explanation per failure: the element's error event and the play()
       // rejection both fire, and a dead stream errors on every retry.
       let explained = false;
@@ -291,7 +380,7 @@
         const text = reason ? `Can't play this right now: ${reason}.` : 'Can\'t play this right now — the browser could not decode the stream.';
         showNotice(text);
         toggle.classList.remove('is-busy');
-        api.toast && api.toast(text, 'error');
+        toastOnce(api, text);
       };
       audio.addEventListener('error', () => { explainFailure(); });
       audio.addEventListener('playing', () => { toggle.classList.remove('is-busy'); showNotice(''); explained = false; });

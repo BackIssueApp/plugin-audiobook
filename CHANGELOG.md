@@ -8,6 +8,20 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.12] — 2026-09-06
+
+### Changed
+
+- **Recording switcher, per the design handoff.** On a shelf with more than
+  one recording the hero carries a switcher naming the loaded one (narrator,
+  length, format, how many there are); it opens a list of every recording
+  with its own progress, a Full cast / Longest / Unavailable flag, and the
+  reason a dead one cannot play. A series shelf leads each row with the
+  book title, editions of one title with the narrator. The player is now a
+  card: 88px cover, filled 42px skip buttons, a 58px main control with a
+  glow. A failure notice offers "Play <the next recording that works>".
+  Repeated failure toasts from the page's re-renders are collapsed to one.
+
 ## [0.3.11] — 2026-09-06
 
 ### Fixed
