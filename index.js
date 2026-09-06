@@ -51,6 +51,23 @@ export default function register(api) {
     scheduleKey: 'audiobooksScanHours',
     run: () => runScan(),
   });
+  // The remote catalog keeps itself current: an incremental run (what changed
+  // at the source since last time, plus the sweep of entries a play attempt
+  // proved dead) every six hours unless the Jobs page says otherwise. Seeded
+  // here because core carries no defaults for plugin jobs; an edit on the
+  // Jobs page persists and wins from then on.
+  config.audiobooksRemoteSyncCron ??= '0 */6 * * *';
+  config.audiobooksRemoteSyncEnabled ??= true;
+  api.registerJob?.({
+    id: 'audiobooks-remote-sync',
+    label: 'Sync remote audiobook catalog',
+    scheduleKey: 'audiobooksRemoteSyncHours',
+    run: async () => {
+      if (!sources().length || isRemoteSyncRunning()) return { skipped: true };
+      const r = await runRemoteSync({ store, sources: sources() });
+      return { mode: r.mode, created: r.created, updated: r.updated, pruned: r.pruned };
+    },
+  });
   // Creating/editing an Audiobooks library indexes it right away (same UX as
   // comic and book libraries) instead of waiting for the scheduled scan.
   api.registerLibraryScanner?.({ type: 'audiobook', scan: () => runScan() });

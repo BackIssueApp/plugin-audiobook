@@ -8,6 +8,16 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.9] — 2026-09-06
+
+### Added
+
+- **The remote catalog syncs on a schedule.** A "Sync remote audiobook
+  catalog" job runs every six hours by default (editable on the Jobs page):
+  new titles at the source arrive on their own, and entries a play attempt
+  proved dead are swept once a working twin exists — no more pressing Sync
+  by hand.
+
 ## [0.3.8] — 2026-09-06
 
 ### Fixed
