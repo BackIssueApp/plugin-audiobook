@@ -8,6 +8,17 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.10] — 2026-09-06
+
+### Added
+
+- **Pick the recording on a shelf.** When a shelf holds more than one
+  recording — editions of the same title with different narrators, lengths or
+  formats, or a series without per-book pages — the web player lists them
+  above the controls with narrator, length and format, marks the one that is
+  loaded and any the source cannot serve, and remembers your pick per shelf.
+  The player used to load the first and hide the rest.
+
 ## [0.3.9] — 2026-09-06
 
 ### Added

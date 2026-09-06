@@ -173,12 +173,56 @@
     renderAudiobookRails();
 
     async function render(container, ctx) {
-      const issue = (ctx.issues || [])[0];
-      const series = ctx.series || {};
-      if (!issue || issue.id == null) {
+      const issues = (ctx.issues || []).filter((i) => i && i.id != null);
+      if (!issues.length) {
         container.innerHTML = '<div class="ab-player ab-empty">This audiobook has no playable file yet.</div>';
         return;
       }
+      if (issues.length === 1) return renderPlayer(container, ctx, issues[0]);
+
+      // Several recordings on one shelf — editions of the same title (different
+      // narrators, lengths, formats), or a series without per-book pages. The
+      // player used to load the first and hide the rest: list them, remember
+      // the pick per shelf, and play the chosen one.
+      container.innerHTML = '<div class="ab-shelf"></div><div class="ab-shelfplayer"></div>';
+      const list = container.querySelector('.ab-shelf');
+      const slot = container.querySelector('.ab-shelfplayer');
+      let info = {};
+      try { info = (await ctx.get(`/api/audiobooks/info?issues=${issues.map((i) => i.id).join(',')}`)).info || {}; } catch { /* rows still list */ }
+      const key = `ab-pick:${ctx.series?.id ?? ''}`;
+      let remembered = null;
+      try { remembered = Number(localStorage.getItem(key)) || null; } catch { /* private mode */ }
+      const firstLive = issues.find((i) => !info[i.id]?.unavailable) || issues[0];
+      let current = issues.find((i) => i.id === remembered) || firstLive;
+      const paint = () => {
+        list.innerHTML = `<div class="ab-shelf__head">${issues.length} recordings on this shelf</div>` + issues.map((it) => {
+          const m = info[it.id] || {};
+          const meta = [m.narrators ? 'Read by ' + m.narrators : null, m.duration ? fmt(m.duration) : null, m.format ? String(m.format).toUpperCase() : null].filter(Boolean).join(' · ');
+          const active = it.id === current.id;
+          return `<button type="button" class="ab-shelf__row${active ? ' is-active' : ''}${m.unavailable ? ' is-dead' : ''}" data-id="${it.id}" aria-pressed="${active}">
+            <span class="ab-shelf__mark">${active ? SVG.play : ''}</span>
+            <span class="ab-shelf__text"><span class="ab-shelf__title">${esc(it.title || ('#' + (it.issue_number ?? '?')))}</span>${meta ? `<span class="ab-shelf__meta">${esc(meta)}</span>` : ''}</span>
+            ${m.unavailable ? '<span class="ab-shelf__tag" title="' + esc(m.unavailableReason || 'the source no longer has this file') + '">Unavailable</span>' : ''}
+          </button>`;
+        }).join('');
+        list.querySelectorAll('.ab-shelf__row').forEach((b) => {
+          b.onclick = () => {
+            const it = issues.find((i) => String(i.id) === b.dataset.id);
+            if (!it || it.id === current.id) return;
+            try { slot.querySelector('audio')?.pause(); } catch { /* fine */ }
+            current = it;
+            try { localStorage.setItem(key, String(it.id)); } catch { /* private mode */ }
+            paint();
+            renderPlayer(slot, ctx, it);
+          };
+        });
+      };
+      paint();
+      return renderPlayer(slot, ctx, current);
+    }
+
+    async function renderPlayer(container, ctx, issue) {
+      const series = ctx.series || {};
       const id = issue.id;
       const streamUrl = `/api/audiobooks/issue/${id}/stream`;
       const coverUrl = `/api/audiobooks/issue/${id}/cover`;
