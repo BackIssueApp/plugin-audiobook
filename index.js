@@ -16,6 +16,17 @@ import { scanLibraries, scanState, audiobookLibraries } from './scanner.js';
 import { makeAudiobookClient, matchNewAudiobooks } from './metadata.js';
 import { runRemoteSync, stopRemoteSync, remoteSyncStatus, isRemoteSyncRunning } from './remotesync.js';
 
+// Cards never show a cover wider than ~400 px, and a source proxy that
+// understands `?w=` (the local one does) then serves a few kilobytes
+// instead of the full art. Callers wanting the original pass `?w=0`; an
+// absolute remote thumbnail is left exactly as the source gave it.
+export function sizedCoverUrl(thumbnail, w) {
+  const t = String(thumbnail || '');
+  if (!t.startsWith('/') || /[?&]w=/.test(t)) return t;
+  const n = w === undefined ? 400 : (Number(w) | 0);
+  return n > 0 ? `${t}${t.includes('?') ? '&' : '?'}w=${n}` : t;
+}
+
 export default function register(api) {
   const store = openAudiobooksStore(config.dbPath);
   const CAN_USE = 'audiobooks.use';
@@ -153,7 +164,7 @@ export default function register(api) {
     const c = store.cover(Number(req.params.id));
     if (!c || !c.thumbnail) return res.status(404).end();
     res.set('Cache-Control', 'private, max-age=86400');
-    res.redirect(302, c.thumbnail);
+    res.redirect(302, sizedCoverUrl(c.thumbnail, req.query.w));
   }, { access: CAN_USE });
 
   // Chapters for the player's chapter list. The catalog sync stores none (the

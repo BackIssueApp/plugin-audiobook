@@ -8,6 +8,14 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.13] — 2026-09-07
+
+### Changed
+
+- **Card covers ask for a card-sized image.** The cover redirect now asks a
+  local source proxy for a 400 px copy by default (`?w=0` for the original),
+  so Home rails and the library grid stop downloading full-size art.
+
 ## [0.3.12] — 2026-09-06
 
 ### Changed
