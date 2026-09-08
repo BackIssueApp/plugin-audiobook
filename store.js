@@ -101,9 +101,27 @@ export function openAudiobooksStore(dbPath) {
     // A remote title the source could not serve (its file is gone): when, and
     // what it said. Cleared the moment a stream succeeds again.
     ['unavailable_at', 'TEXT'], ['unavailable_reason', 'TEXT'],
+    // lower(trim(issue title)) — see the twin indexes below.
+    ['title_key', 'TEXT'],
   ]) {
     if (!abCols.includes(col)) db.exec(`ALTER TABLE audiobooks_files ADD COLUMN ${col} ${decl}`);
   }
+  // The duplicate-twin lookups (remotesync) match remote entries by title.
+  // Comparing issue titles across a join was a whole-table scan per lookup:
+  // on a 244k-title remote catalog one lookup took minutes of blocked main
+  // thread, and a sync that found a few new books took the server down. The
+  // normalised title now lives on the row (filled lazily for rows from before
+  // this column existed), under an index the lookups probe instead.
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_abfiles_twin ON audiobooks_files (source, library_id, title_key);
+    CREATE INDEX IF NOT EXISTS idx_abfiles_unavailable ON audiobooks_files (source, unavailable_at);
+  `);
+  /** Fill title_key for a source's rows that predate the column (or lost it). */
+  const ensureTitleKeys = (source) => {
+    db.prepare(`UPDATE audiobooks_files
+      SET title_key = (SELECT lower(trim(i.title)) FROM issues i WHERE i.id = audiobooks_files.issue_id)
+      WHERE source = ? AND title_key IS NULL`).run(source);
+  };
   // Sync bookkeeping beyond the page cursor: when the last run finished, and
   // whether a full walk has ever completed (after which runs are incremental).
   const rsCols = db.prepare("SELECT name FROM pragma_table_info('audiobooks_remote_sync')").all().map((r) => r.name);
@@ -189,17 +207,17 @@ export function openAudiobooksStore(dbPath) {
         if (prev) {
           db.prepare(`UPDATE audiobooks_files SET library_id=@lib, series_id=@sid, issue_id=@iid,
               format=@format, duration=@duration, narrators=@narrators, chapters=@chapters,
-              thumbnail=@thumb, explicit=@explicit WHERE rowid=@rowid`)
-            .run({ rowid: prev.ab_rowid, lib: libraryId, sid: seriesId, iid: issueId,
+              thumbnail=@thumb, explicit=@explicit, title_key=lower(trim(@title)) WHERE rowid=@rowid`)
+            .run({ rowid: prev.ab_rowid, lib: libraryId, sid: seriesId, iid: issueId, title,
               format: (meta.format || 'm4b'), duration: meta.duration ?? null,
               narrators: (meta.narrators || []).join(', ') || null,
               chapters: meta.chapters ? JSON.stringify(meta.chapters) : null,
               thumb: meta.coverUrl || null, explicit: restricted });
         } else {
           db.prepare(`INSERT INTO audiobooks_files
-              (path, library_id, series_id, issue_id, format, size, duration, narrators, chapters, thumbnail, explicit, source, remote_id, added_at)
-              VALUES (NULL, @lib, @sid, @iid, @format, @size, @duration, @narrators, @chapters, @thumb, @explicit, @source, @remote, @now)`)
-            .run({ lib: libraryId, sid: seriesId, iid: issueId, format: (meta.format || 'm4b'),
+              (path, library_id, series_id, issue_id, format, size, duration, narrators, chapters, thumbnail, explicit, source, remote_id, added_at, title_key)
+              VALUES (NULL, @lib, @sid, @iid, @format, @size, @duration, @narrators, @chapters, @thumb, @explicit, @source, @remote, @now, lower(trim(@title)))`)
+            .run({ lib: libraryId, sid: seriesId, iid: issueId, format: (meta.format || 'm4b'), title,
               size: meta.size ?? null, duration: meta.duration ?? null,
               narrators: (meta.narrators || []).join(', ') || null,
               chapters: meta.chapters ? JSON.stringify(meta.chapters) : null,
@@ -549,22 +567,26 @@ export function openAudiobooksStore(dbPath) {
      *  record often sat alone on its own shelf (no series info at the time)
      *  while the new one joined the series. */
     duplicateRemoteEntries(source, remoteId) {
+      ensureTitleKeys(source);
+      // CROSS JOIN pins f1 (one row, by its remote identity) as the outer
+      // loop, and `+f2.path` keeps the planner off the path primary key —
+      // every remote row has a NULL path, so that "unique" index is the
+      // whole table. f2 is then a probe of idx_abfiles_twin.
       return db.prepare(`SELECT f2.issue_id, f2.remote_id
         FROM audiobooks_files f1
-        JOIN issues i1 ON i1.id = f1.issue_id
-        JOIN audiobooks_files f2 ON f2.source = f1.source AND f2.library_id = f1.library_id AND f2.issue_id <> f1.issue_id AND f2.path IS NULL
-        JOIN issues i2 ON i2.id = f2.issue_id AND lower(trim(i2.title)) = lower(trim(i1.title))
-        WHERE f1.source = ? AND f1.remote_id = ?`).all(source, String(remoteId));
+        CROSS JOIN audiobooks_files f2 ON f2.source = f1.source AND f2.library_id = f1.library_id
+          AND f2.title_key = f1.title_key AND f2.issue_id <> f1.issue_id AND +f2.path IS NULL
+        WHERE f1.source = ? AND f1.remote_id = ? AND f1.title_key IS NOT NULL`).all(source, String(remoteId));
     },
     /** Entries already known to be unavailable that have a same-titled twin
      *  which is not — candidates for the end-of-sync sweep. */
     unavailableWithTwin(source) {
+      ensureTitleKeys(source);
       return db.prepare(`SELECT DISTINCT f1.issue_id, f1.remote_id, f2.issue_id AS twin_issue_id, f2.remote_id AS twin_remote_id
         FROM audiobooks_files f1
-        JOIN issues i1 ON i1.id = f1.issue_id
-        JOIN audiobooks_files f2 ON f2.source = f1.source AND f2.library_id = f1.library_id AND f2.issue_id <> f1.issue_id AND f2.path IS NULL AND f2.unavailable_at IS NULL
-        JOIN issues i2 ON i2.id = f2.issue_id AND lower(trim(i2.title)) = lower(trim(i1.title))
-        WHERE f1.source = ? AND f1.path IS NULL AND f1.unavailable_at IS NOT NULL`).all(source);
+        CROSS JOIN audiobooks_files f2 ON f2.source = f1.source AND f2.library_id = f1.library_id
+          AND f2.title_key = f1.title_key AND f2.issue_id <> f1.issue_id AND +f2.path IS NULL AND +f2.unavailable_at IS NULL
+        WHERE f1.source = ? AND +f1.path IS NULL AND f1.unavailable_at IS NOT NULL AND f1.title_key IS NOT NULL`).all(source);
     },
   };
   return api;
