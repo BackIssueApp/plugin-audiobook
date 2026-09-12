@@ -24,6 +24,16 @@ export const seriesUrlFor = (libraryId, meta) => (meta.series
   ? `audiobook:l${libraryId}:s:${slug(meta.series)}`
   : `audiobook:l${libraryId}:b:${slug(meta.title)}~${slug(meta.author || (meta.authors || [])[0] || '')}`);
 const issueUrlFor = (p) => 'audiobookfile:' + p;
+/** A title reduced to what identifies the book: lower-case, bracketed notes
+ *  dropped, cut at a subtitle (": A Novel", " - Book One"), punctuation
+ *  collapsed — "Theo of Golden: A Novel (English Edition)" → "theo of golden". */
+export function titleKey(t) {
+  return String(t || '').toLowerCase()
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+    .split(/\s*[:–—]\s*|\s+-\s+/)[0]
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 const indexNumber = (n) => (Number.isFinite(Number(n)) && String(n).trim() !== '' ? String(n) : '1');
 const year4 = (s) => (String(s || '').match(/(\d{4})/) || [])[1] || null;
 const nownow = () => new Date().toISOString();
@@ -89,6 +99,20 @@ export function openAudiobooksStore(dbPath) {
       user_id       INTEGER PRIMARY KEY,
       show_continue INTEGER NOT NULL DEFAULT 1,
       show_new      INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS audiobooks_wanted (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      match_id   TEXT NOT NULL UNIQUE,   -- the catalog's id for the book
+      title      TEXT NOT NULL,
+      author     TEXT,
+      year       TEXT,
+      isbn       TEXT,
+      cover      TEXT,
+      added_by   INTEGER NOT NULL DEFAULT 0,
+      added_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+      tried_at   TEXT,
+      last_error TEXT
     );
   `);
   // The original table only carried remote (file-less) entries; add the columns
@@ -541,6 +565,73 @@ export function openAudiobooksStore(dbPath) {
         .run({ s: source, t: total ?? null, now: nownow(), at: at || nownow(), c: complete ? 1 : 0 });
     },
     /** The source could not serve this title (file gone upstream). */
+    /** Drop every file-less entry a remote source put on the shelf — the
+     *  source was removed, or the shelf is being reset — with their issues,
+     *  the series left empty, and the source's sync cursor, so a later
+     *  re-enable starts from scratch. → { entries, series, kept } */
+    removeRemoteSource(source) {
+      const src = String(source || '');
+      if (!src) return { entries: 0, series: 0, kept: 0 };
+      return db.transaction(() => {
+        db.exec('CREATE TEMP TABLE IF NOT EXISTS gone_issues (id INTEGER PRIMARY KEY); CREATE TEMP TABLE IF NOT EXISTS gone_series (id INTEGER PRIMARY KEY); DELETE FROM gone_issues; DELETE FROM gone_series');
+        db.prepare('INSERT OR IGNORE INTO gone_issues SELECT issue_id FROM audiobooks_files WHERE source=? AND path IS NULL AND issue_id IS NOT NULL').run(src);
+        db.prepare("INSERT OR IGNORE INTO gone_series SELECT series_id FROM issues WHERE id IN (SELECT id FROM gone_issues) AND url LIKE 'audiobookremote:%'").run();
+        const entries = db.prepare('DELETE FROM audiobooks_files WHERE source=? AND path IS NULL').run(src).changes;
+        db.prepare("DELETE FROM issues WHERE id IN (SELECT id FROM gone_issues) AND url LIKE 'audiobookremote:%'").run();
+        const series = db.prepare("DELETE FROM series WHERE id IN (SELECT id FROM gone_series) AND url LIKE 'audiobook:%' AND NOT EXISTS (SELECT 1 FROM issues WHERE issues.series_id = series.id)").run().changes;
+        const kept = db.prepare('SELECT COUNT(*) n FROM audiobooks_files WHERE source=?').get(src).n;
+        try { db.prepare('DELETE FROM audiobooks_remote_sync WHERE source=?').run(src); } catch { /* no cursor kept */ }
+        db.exec('DROP TABLE gone_issues; DROP TABLE gone_series');
+        return { entries, series, kept };
+      })();
+    },
+
+
+    /** Is this catalog book on the shelf already? By its catalog id, its ISBN,
+     *  or the same title with an author that does not contradict. → { issueId,
+     *  seriesId } or null. */
+    onShelf({ matchId = null, isbn = null, title = null, author = null } = {}) {
+      const found = (issueId) => {
+        const i = db.prepare('SELECT id, series_id FROM issues WHERE id=?').get(issueId);
+        return i ? { issueId: i.id, seriesId: i.series_id } : null;
+      };
+      const cleanIsbn = String(isbn || '').replace(/[\s-]/g, '') || null;
+      const byKey = db.prepare(`SELECT f.issue_id FROM audiobooks_files f WHERE f.issue_id IS NOT NULL AND ((@mid IS NOT NULL AND f.match_id = @mid) ) LIMIT 1`)
+        .get({ mid: matchId != null ? String(matchId) : null, isbn: cleanIsbn });
+      if (byKey) { const f = found(byKey.issue_id); if (f) return f; }
+      if (!title) return null;
+      const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      // The same book is titled many ways — "Theo of Golden", "Theo of Golden:
+      // A Novel", "Theo of Golden (English Edition)" — so titles are compared
+      // by their key: the part before a subtitle, with bracketed notes dropped.
+      const key = titleKey(title);
+      if (!key) return null;
+      const rows = db.prepare(`SELECT f.issue_id, i.title, s.publisher FROM audiobooks_files f
+          JOIN issues i ON i.id = f.issue_id JOIN series s ON s.id = i.series_id
+         WHERE lower(i.title) LIKE ? LIMIT 40`).all(key.split(' ')[0] + '%');
+      const a = norm(author);
+      const last = a.split(' ').pop();
+      const hit = rows.find((r) => titleKey(r.title) === key
+        && (!a || !r.publisher || norm(r.publisher).includes(a) || a.includes(norm(r.publisher)) || (last && norm(r.publisher).includes(last))));
+      return hit ? found(hit.issue_id) : null;
+    },
+
+    /** Want a catalog book: one row per catalog id (asking again refreshes it). */
+    addWanted(item, userId = 0) {
+      const r = db.prepare(`INSERT INTO audiobooks_wanted (match_id, title, author, year, isbn, cover, added_by)
+          VALUES (@match_id, @title, @author, @year, @isbn, @cover, @added_by)
+          ON CONFLICT(match_id) DO UPDATE SET title=excluded.title, author=excluded.author, year=excluded.year, isbn=excluded.isbn, cover=excluded.cover`)
+        .run({ match_id: String(item.id), title: item.title || 'Untitled', author: item.author || null, year: item.year || null, isbn: item.isbn || null, cover: item.cover || null, added_by: userId || 0 });
+      return this.wantedByMatch(String(item.id)) || this.wantedById(r.lastInsertRowid);
+    },
+    wantedById(id) { return db.prepare('SELECT * FROM audiobooks_wanted WHERE id=?').get(Number(id)) || null; },
+    wantedByMatch(matchId) { return db.prepare('SELECT * FROM audiobooks_wanted WHERE match_id=?').get(String(matchId)) || null; },
+    listWanted() { return db.prepare('SELECT * FROM audiobooks_wanted ORDER BY id').all(); },
+    removeWanted(id) { return db.prepare('DELETE FROM audiobooks_wanted WHERE id=?').run(Number(id)).changes; },
+    noteWantedTry(id, error = null) {
+      db.prepare(`UPDATE audiobooks_wanted SET tried_at=strftime('%Y-%m-%dT%H:%M:%SZ','now'), last_error=? WHERE id=?`).run(error, Number(id));
+    },
+
     markUnavailable(issueId, reason = null) {
       db.prepare('UPDATE audiobooks_files SET unavailable_at=?, unavailable_reason=? WHERE issue_id=?').run(nownow(), reason ? String(reason).slice(0, 200) : null, issueId);
     },

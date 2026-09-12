@@ -8,6 +8,27 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.3.15] — 2026-09-12
+
+### Added
+
+- **Add an audiobook.** The app's Add button gains an Audiobooks tab where an
+  Audiobooks library exists: search the catalog, see what is already on the
+  shelf, and add one — it goes on a wanted list and the download sources are
+  asked for it at once. What no source has yet is tried again by the new
+  **Fill wanted audiobooks** job, or leaves the list when a scan brings it
+  in. `GET /api/audiobooks/wanted` lists them; `DELETE /api/audiobooks/wanted/<id>`
+  drops one.
+- **Downloads are filed.** An audiobook the app's download sources fetched (an
+  approved request, for instance) is moved into the library as
+  Author/Title.ext (or Author/Title/parts) and catalogued like a scanned one, named from the
+  request's title and author. Needs app 0.8.4 or later; older apps simply
+  never hand anything over.
+- **Removing an on-demand source's entries.** `DELETE /api/audiobooks/remote/<source>`
+  (library manage) drops every entry that source put on the shelf, with their
+  issues and the series left empty, and forgets its sync cursor — for a
+  source plugin you have removed, or a shelf you want reset.
+
 ## [0.3.14] — 2026-09-08
 
 ### Fixed

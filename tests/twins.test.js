@@ -60,3 +60,33 @@ test('same-titled remote entries are found through the title index, not a table 
   assert.doesNotMatch(sweep, /SCAN/);
   store.db.close();
 });
+
+test('removeRemoteSource drops a source\'s file-less entries and their issues, and no one else\'s', () => {
+  const store = boot();
+  const a = store.catalogRemote({ libraryId: 1, source: 'fake', remoteId: 'r1', meta: book('r1', 'Dune') });
+  store.catalogRemote({ libraryId: 1, source: 'fake', remoteId: 'r2', meta: book('r2', 'Dune Messiah') });
+  const other = store.catalogRemote({ libraryId: 1, source: 'other', remoteId: 'r4', meta: book('r4', 'Emma') });
+  const removed = store.removeRemoteSource('fake');
+  assert.equal(removed.entries, 2);
+  assert.equal(store.db.prepare("SELECT COUNT(*) n FROM audiobooks_files WHERE source='fake'").get().n, 0);
+  assert.equal(store.db.prepare('SELECT COUNT(*) n FROM issues WHERE id=?').get(a.issueId).n, 0);
+  assert.equal(store.db.prepare('SELECT COUNT(*) n FROM issues WHERE id=?').get(other.issueId).n, 1);
+  assert.equal(store.removeRemoteSource('fake').entries, 0, 'idempotent');
+});
+
+test('wanted audiobooks: one row per catalog id; onShelf finds a title+author or a matched id', () => {
+  const store = boot();
+  const w = store.addWanted({ id: 'B00X', title: 'Dune', author: 'Frank Herbert', year: '2007' }, 3);
+  assert.equal(store.addWanted({ id: 'B00X', title: 'Dune' }).id, w.id);
+  assert.equal(store.listWanted().length, 1);
+  assert.equal(store.onShelf({ matchId: 'B00X', title: 'Dune', author: 'Frank Herbert' }), null);
+  const r = store.catalogRemote({ libraryId: 1, source: 'fake', remoteId: 'r1', meta: book('r1', 'Dune') });
+  const on = store.onShelf({ title: 'Dune', author: 'A. Author' });
+  assert.deepEqual(on, { issueId: r.issueId, seriesId: r.seriesId });
+  assert.equal(store.onShelf({ title: 'Dune', author: 'Somebody Else' }), null);
+  assert.deepEqual(store.onShelf({ title: 'Dune: The Original Novel', author: 'A. Author' }), on, 'a subtitle is the same book');
+  assert.equal(store.onShelf({ title: 'Dune Messiah', author: 'A. Author' }), null);
+  store.noteWantedTry(w.id, null);
+  assert.equal(store.wantedById(w.id).last_error, null);
+  assert.equal(store.removeWanted(w.id), 1);
+});

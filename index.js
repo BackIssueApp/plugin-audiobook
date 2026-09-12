@@ -15,6 +15,8 @@ import { openAudiobooksStore } from './store.js';
 import { scanLibraries, scanState, audiobookLibraries } from './scanner.js';
 import { makeAudiobookClient, matchNewAudiobooks } from './metadata.js';
 import { runRemoteSync, stopRemoteSync, remoteSyncStatus, isRemoteSyncRunning } from './remotesync.js';
+import { makeMediaHandler } from './importer.js';
+import { registerCatalog } from './catalog.js';
 
 // Cards never show a cover wider than ~400 px, and a source proxy that
 // understands `?w=` (the local one does) then serves a few kilobytes
@@ -82,6 +84,16 @@ export default function register(api) {
   // Creating/editing an Audiobooks library indexes it right away (same UX as
   // comic and book libraries) instead of waiting for the scheduled scan.
   api.registerLibraryScanner?.({ type: 'audiobook', scan: () => runScan() });
+  // An audiobook the download sources fetched (usenet, torrent, a site source
+  // that serves audiobooks — e.g. for an approved request) is moved into the
+  // library as Author/Title and catalogued like a scanned one.
+  api.registerMediaHandler?.(makeMediaHandler({ store, getClients: () => [hosted] }));
+  // The Add flow: search the catalog, want an audiobook, ask the download
+  // sources. Wanted audiobooks are asked for again every few hours unless the
+  // Jobs page says otherwise (core carries no defaults for plugin jobs).
+  config.audiobooksWantedCron ??= '0 */4 * * *';
+  config.audiobooksWantedEnabled ??= true;
+  registerCatalog({ api, store, client: hosted, uid, CAN_USE, CAN_MANAGE });
   // Boot catch-up: an Audiobooks library with files on disk but nothing indexed
   // (or indexed local files that never had a metadata-match attempt — e.g.
   // scanned before the instance key existed) scans shortly after startup. Remote
@@ -213,6 +225,17 @@ export default function register(api) {
     const { position, note } = req.body || {};
     res.json(store.addBookmark(uid(req), Number(req.params.id), position, note));
   }, { access: CAN_USE });
+  // DELETE /api/audiobooks/remote/:source — drop every on-demand entry that
+  // source put on the shelf (its plugin was removed, or the shelf is being
+  // reset). Curation-tier, like the sync itself.
+  api.registerRoute('delete', '/api/audiobooks/remote/:source', (req, res) => {
+    const source = String(req.params.source || '').trim();
+    if (!source) return res.status(400).json({ error: 'source required' });
+    const removed = store.removeRemoteSource(source);
+    console.log(`audiobooks: removed ${removed.entries} on-demand entr${removed.entries === 1 ? 'y' : 'ies'} from ${source} (${removed.series} empty series dropped)`);
+    res.json({ source, removed });
+  }, { access: CAN_MANAGE });
+
   api.registerRoute('delete', '/api/audiobooks/bookmarks/:bid', (req, res) => {
     store.deleteBookmark(uid(req), Number(req.params.bid));
     res.json({ ok: true });
