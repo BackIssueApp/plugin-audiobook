@@ -1,0 +1,58 @@
+{
+  "untitled": "Zonder titel",
+  "rails": {
+    "continueListening": "Verder luisteren",
+    "newAudiobooks": "Nieuwe luisterboeken",
+    "hideTitle": "Deze rij verbergen — zet hem weer aan via je profiel",
+    "hideAria": "{title} verbergen"
+  },
+  "prefs": {
+    "title": "Luisterboekrijen",
+    "note": "Welke luisterboekrijen op je startscherm staan."
+  },
+  "versions": {
+    "unknownNarrator": "Onbekende verteller",
+    "sourceLost": "de bron heeft dit bestand niet meer",
+    "unavailable": "Niet beschikbaar",
+    "fullCast": "Volledige cast",
+    "longest": "Langste",
+    "readBy": "Voorgelezen door {narrator}",
+    "left": "{time} resterend",
+    "choose": "Kies een opname",
+    "nRecordings": { "one": "{count} opname", "other": "{count} opnames" },
+    "nVersions": { "one": "{count} versie", "other": "{count} versies" },
+    "remembered": "per plank onthouden"
+  },
+  "player": {
+    "noFile": "Dit luisterboek heeft nog geen afspeelbaar bestand.",
+    "audiobook": "Luisterboek",
+    "seek": "Spoelen",
+    "back15": "15 s terug",
+    "play": "Afspelen",
+    "pause": "Pauze",
+    "fwd15": "15 s vooruit",
+    "chapters": "Hoofdstukken",
+    "sleep": "Slaaptimer",
+    "sleepMins": "{mins} min",
+    "bookmark": "Bladwijzer",
+    "playAlt": "{name} afspelen",
+    "serverAnswered": "de server antwoordde {status}",
+    "unreachable": "de app was niet bereikbaar",
+    "cantPlayReason": "Kan dit nu niet afspelen: {reason}.",
+    "cantPlayDecode": "Kan dit nu niet afspelen — de browser kon de stream niet decoderen.",
+    "durationLine": "{duration} • luisterboek",
+    "unavailableNow": "Deze titel is momenteel niet beschikbaar bij de bron{reason}. Druk op afspelen om het opnieuw te proberen."
+  },
+  "chapters": {
+    "loading": "Hoofdstukken laden…",
+    "chapterN": "Hoofdstuk {n}",
+    "none": "Geen hoofdstukmarkeringen voor dit luisterboek."
+  },
+  "bookmarks": {
+    "defaultNote": "Bladwijzer",
+    "delete": "Verwijderen",
+    "empty": "Nog geen bladwijzers — tik op Bladwijzer om je plek te bewaren.",
+    "saved": "Bladwijzer opgeslagen.",
+    "saveFailed": "Bladwijzer kon niet worden opgeslagen."
+  }
+}

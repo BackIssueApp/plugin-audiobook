@@ -1,0 +1,58 @@
+{
+  "untitled": "Sem título",
+  "rails": {
+    "continueListening": "Continuar a ouvir",
+    "newAudiobooks": "Audiolivros novos",
+    "hideTitle": "Ocultar esta fila — volte a ativá-la no seu perfil",
+    "hideAria": "Ocultar {title}"
+  },
+  "prefs": {
+    "title": "Filas de audiolivros",
+    "note": "Que filas de audiolivros aparecem no ecrã inicial."
+  },
+  "versions": {
+    "unknownNarrator": "Narrador desconhecido",
+    "sourceLost": "a fonte já não tem este ficheiro",
+    "unavailable": "Indisponível",
+    "fullCast": "Elenco completo",
+    "longest": "A mais longa",
+    "readBy": "Narrado por {narrator}",
+    "left": "faltam {time}",
+    "choose": "Escolher uma gravação",
+    "nRecordings": { "one": "{count} gravação", "other": "{count} gravações" },
+    "nVersions": { "one": "{count} versão", "other": "{count} versões" },
+    "remembered": "lembrado por estante"
+  },
+  "player": {
+    "noFile": "Este audiolivro ainda não tem um ficheiro reproduzível.",
+    "audiobook": "Audiolivro",
+    "seek": "Procurar",
+    "back15": "Recuar 15 s",
+    "play": "Reproduzir",
+    "pause": "Pausa",
+    "fwd15": "Avançar 15 s",
+    "chapters": "Capítulos",
+    "sleep": "Temporizador",
+    "sleepMins": "{mins} min",
+    "bookmark": "Marcador",
+    "playAlt": "Reproduzir {name}",
+    "serverAnswered": "o servidor respondeu {status}",
+    "unreachable": "não foi possível contactar a aplicação",
+    "cantPlayReason": "Não é possível reproduzir agora: {reason}.",
+    "cantPlayDecode": "Não é possível reproduzir agora — o navegador não conseguiu descodificar a transmissão.",
+    "durationLine": "{duration} • audiolivro",
+    "unavailableNow": "Este título não está disponível na sua fonte neste momento{reason}. Prima reproduzir para tentar de novo."
+  },
+  "chapters": {
+    "loading": "A carregar capítulos…",
+    "chapterN": "Capítulo {n}",
+    "none": "Este audiolivro não tem marcas de capítulo."
+  },
+  "bookmarks": {
+    "defaultNote": "Marcador",
+    "delete": "Eliminar",
+    "empty": "Ainda não há marcadores — toque em Marcador para guardar a sua posição.",
+    "saved": "Marcador guardado.",
+    "saveFailed": "Não foi possível guardar o marcador."
+  }
+}

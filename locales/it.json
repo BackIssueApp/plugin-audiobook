@@ -1,0 +1,58 @@
+{
+  "untitled": "Senza titolo",
+  "rails": {
+    "continueListening": "Continua ad ascoltare",
+    "newAudiobooks": "Nuovi audiolibri",
+    "hideTitle": "Nascondi questa fila — riattivala dal tuo profilo",
+    "hideAria": "Nascondi {title}"
+  },
+  "prefs": {
+    "title": "File di audiolibri",
+    "note": "Quali file di audiolibri compaiono nella schermata iniziale."
+  },
+  "versions": {
+    "unknownNarrator": "Narratore sconosciuto",
+    "sourceLost": "la fonte non ha più questo file",
+    "unavailable": "Non disponibile",
+    "fullCast": "Cast completo",
+    "longest": "La più lunga",
+    "readBy": "Letto da {narrator}",
+    "left": "{time} rimanenti",
+    "choose": "Scegli una registrazione",
+    "nRecordings": { "one": "{count} registrazione", "other": "{count} registrazioni" },
+    "nVersions": { "one": "{count} versione", "other": "{count} versioni" },
+    "remembered": "ricordato per scaffale"
+  },
+  "player": {
+    "noFile": "Questo audiolibro non ha ancora un file riproducibile.",
+    "audiobook": "Audiolibro",
+    "seek": "Scorri",
+    "back15": "Indietro di 15 s",
+    "play": "Riproduci",
+    "pause": "Pausa",
+    "fwd15": "Avanti di 15 s",
+    "chapters": "Capitoli",
+    "sleep": "Timer",
+    "sleepMins": "{mins} min",
+    "bookmark": "Segnalibro",
+    "playAlt": "Riproduci {name}",
+    "serverAnswered": "il server ha risposto {status}",
+    "unreachable": "impossibile raggiungere l’app",
+    "cantPlayReason": "Riproduzione non possibile al momento: {reason}.",
+    "cantPlayDecode": "Riproduzione non possibile al momento — il browser non è riuscito a decodificare lo stream.",
+    "durationLine": "{duration} • audiolibro",
+    "unavailableNow": "Questo titolo non è disponibile dalla sua fonte al momento{reason}. Premi riproduci per riprovare."
+  },
+  "chapters": {
+    "loading": "Caricamento dei capitoli…",
+    "chapterN": "Capitolo {n}",
+    "none": "Nessun segnacapitolo per questo audiolibro."
+  },
+  "bookmarks": {
+    "defaultNote": "Segnalibro",
+    "delete": "Elimina",
+    "empty": "Nessun segnalibro per ora — tocca Segnalibro per salvare il punto.",
+    "saved": "Segnalibro salvato.",
+    "saveFailed": "Impossibile salvare il segnalibro."
+  }
+}

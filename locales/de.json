@@ -1,0 +1,58 @@
+{
+  "untitled": "Ohne Titel",
+  "rails": {
+    "continueListening": "Weiterhören",
+    "newAudiobooks": "Neue Hörbücher",
+    "hideTitle": "Diese Leiste ausblenden — im Profil wieder einschalten",
+    "hideAria": "{title} ausblenden"
+  },
+  "prefs": {
+    "title": "Hörbuchleisten",
+    "note": "Welche Hörbuchleisten auf dem Startbildschirm erscheinen."
+  },
+  "versions": {
+    "unknownNarrator": "Unbekannter Sprecher",
+    "sourceLost": "die Quelle hat diese Datei nicht mehr",
+    "unavailable": "Nicht verfügbar",
+    "fullCast": "Vollbesetzung",
+    "longest": "Längste",
+    "readBy": "Gelesen von {narrator}",
+    "left": "noch {time}",
+    "choose": "Aufnahme wählen",
+    "nRecordings": { "one": "{count} Aufnahme", "other": "{count} Aufnahmen" },
+    "nVersions": { "one": "{count} Version", "other": "{count} Versionen" },
+    "remembered": "pro Regal gemerkt"
+  },
+  "player": {
+    "noFile": "Dieses Hörbuch hat noch keine abspielbare Datei.",
+    "audiobook": "Hörbuch",
+    "seek": "Spulen",
+    "back15": "15 s zurück",
+    "play": "Abspielen",
+    "pause": "Pause",
+    "fwd15": "15 s vor",
+    "chapters": "Kapitel",
+    "sleep": "Schlummern",
+    "sleepMins": "{mins} Min.",
+    "bookmark": "Lesezeichen",
+    "playAlt": "{name} abspielen",
+    "serverAnswered": "der Server antwortete mit {status}",
+    "unreachable": "die App war nicht erreichbar",
+    "cantPlayReason": "Wiedergabe derzeit nicht möglich: {reason}.",
+    "cantPlayDecode": "Wiedergabe derzeit nicht möglich — der Browser konnte den Stream nicht dekodieren.",
+    "durationLine": "{duration} • Hörbuch",
+    "unavailableNow": "Dieser Titel ist bei seiner Quelle derzeit nicht verfügbar{reason}. Zum erneuten Versuch auf Abspielen drücken."
+  },
+  "chapters": {
+    "loading": "Kapitel werden geladen…",
+    "chapterN": "Kapitel {n}",
+    "none": "Keine Kapitelmarken für dieses Hörbuch."
+  },
+  "bookmarks": {
+    "defaultNote": "Lesezeichen",
+    "delete": "Löschen",
+    "empty": "Noch keine Lesezeichen — auf Lesezeichen tippen, um die Stelle zu speichern.",
+    "saved": "Lesezeichen gespeichert.",
+    "saveFailed": "Lesezeichen konnte nicht gespeichert werden."
+  }
+}

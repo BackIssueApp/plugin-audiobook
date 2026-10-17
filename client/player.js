@@ -50,6 +50,13 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   window.BackIssue.registerClient((api) => {
+    // Translations: api.t when the host has it (BackIssue > 0.9.0), the inline
+    // English otherwise. Catalog keys live under locales/<lang>.json.
+    const NS = 'audiobooks.';
+    const fill = (str, p) => (p ? String(str).replace(/\{(\w+)\}/g, (m, k) => (p[k] === undefined || p[k] === null ? m : String(p[k]))) : String(str));
+    const tr = (key, en, params) => { if (typeof api.t !== 'function') return fill(en, params); const v = api.t(NS + key, params); return v === NS + key ? fill(en, params) : v; };
+    const te = (key, en, params) => esc(tr(key, en, params));
+
     if (api.registerSeriesView) api.registerSeriesView({ type: 'audiobook', render });
 
     // ---------- home rails ----------
@@ -58,9 +65,10 @@
     // owns a display:contents wrapper so they coexist). Per-user visibility is
     // saved server-side (/api/audiobooks/home-prefs), so it syncs with the apps.
     const AB_SHELVES = [
-      { key: 'ab-continue', pref: 'showContinue', title: 'Continue listening', facet: '{"status":"reading"}' },
-      { key: 'ab-new',      pref: 'showNew',      title: 'New audiobooks',      facet: null },
+      { key: 'ab-continue', pref: 'showContinue', title: ['rails.continueListening', 'Continue listening'], facet: '{"status":"reading"}' },
+      { key: 'ab-new',      pref: 'showNew',      title: ['rails.newAudiobooks', 'New audiobooks'],         facet: null },
     ];
+    const shelfTitle = (sh) => tr(sh.title[0], sh.title[1]);
     let abLibId;         // undefined = unresolved, null = none
     let abPrefs = null;
     const abShelfOn = (s) => (abPrefs && s.pref in abPrefs) ? abPrefs[s.pref] !== false : true;
@@ -129,11 +137,11 @@
       head.className = 'ab-rail__head';
       const h = document.createElement('span');
       h.className = 'ab-rail__title';
-      h.textContent = shelf.title;
+      h.textContent = shelfTitle(shelf);
       const hide = document.createElement('button');
       hide.className = 'ab-rail__hide';
-      hide.title = 'Hide this rail — turn it back on from your Profile';
-      hide.setAttribute('aria-label', 'Hide ' + shelf.title);
+      hide.title = tr('rails.hideTitle', 'Hide this rail — turn it back on from your Profile');
+      hide.setAttribute('aria-label', tr('rails.hideAria', 'Hide {title}', { title: shelfTitle(shelf) }));
       hide.innerHTML = (api.icon && api.icon('close', { size: 16 })) || '×';
       hide.onclick = () => hideAbShelf(shelf);
       head.append(h, hide);
@@ -150,7 +158,7 @@
       el.title = it.title || '';
       el.innerHTML = `
         <span class="ab-rail__cover"><img src="${esc(it.cover_url || '')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></span>
-        <span class="ab-rail__label"><b>${esc(it.title || 'Untitled')}</b></span>
+        <span class="ab-rail__label"><b>${esc(it.title || tr('untitled', 'Untitled'))}</b></span>
         ${it.publisher ? `<small class="ab-rail__sub">${esc(it.publisher)}</small>` : ''}`;
       el.onclick = () => { if (api.openSeries) api.openSeries(it.id); };
       return el;
@@ -170,10 +178,10 @@
         card = document.createElement('section');
         card.className = 'settings-section';
         card.id = 'audiobooks-rails-prefs';
-        card.innerHTML = '<p class="modal__subhead">Audiobook rails</p>'
-          + '<p class="modal__note">Which audiobook rails appear on your home screen.</p>'
+        card.innerHTML = '<p class="modal__subhead">' + te('prefs.title', 'Audiobook rails') + '</p>'
+          + '<p class="modal__note">' + te('prefs.note', 'Which audiobook rails appear on your home screen.') + '</p>'
           + '<div class="ab-rails-prefs">'
-          + AB_SHELVES.map((s) => `<label class="ab-rails-row"><input type="checkbox" data-pref="${s.pref}"> ${esc(s.title)}</label>`).join('')
+          + AB_SHELVES.map((s) => `<label class="ab-rails-row"><input type="checkbox" data-pref="${s.pref}"> ${esc(shelfTitle(s))}</label>`).join('')
           + '</div>';
         slot.appendChild(card);
         card.querySelectorAll('input[data-pref]').forEach((cb) => {
@@ -193,7 +201,7 @@
     async function render(container, ctx) {
       const issues = (ctx.issues || []).filter((i) => i && i.id != null);
       if (!issues.length) {
-        container.innerHTML = '<div class="ab-player ab-empty">This audiobook has no playable file yet.</div>';
+        container.innerHTML = '<div class="ab-player ab-empty">' + te('player.noFile', 'This audiobook has no playable file yet.') + '</div>';
         return;
       }
       if (issues.length === 1) return renderPlayer(container, ctx, issues[0]);
@@ -233,9 +241,9 @@
       const duration = Number(m.duration) || Number(p.duration) || 0;
       const pos = Number(p.position) || 0;
       const frac = duration ? Math.min(1, pos / duration) : 0;
-      const narr = m.narrators || 'Unknown narrator';
+      const narr = m.narrators || tr('versions.unknownNarrator', 'Unknown narrator');
       const fullCast = /full[- ]?cast/i.test(narr) || /full[- ]?cast/i.test(it.title || '');
-      return { id: it.id, narr, duration, pos, frac, started: frac > 0.005 && frac < 0.995, dead: !!m.unavailable, deadReason: m.unavailableReason || 'the source no longer has this file', format: m.format ? String(m.format).toUpperCase() : '', fullCast, title: it.title || '' };
+      return { id: it.id, narr, duration, pos, frac, started: frac > 0.005 && frac < 0.995, dead: !!m.unavailable, deadReason: m.unavailableReason || tr('versions.sourceLost', 'the source no longer has this file'), format: m.format ? String(m.format).toUpperCase() : '', fullCast, title: it.title || '' };
     }
 
     // "Gemma Whelan, Hugh Laurie +13" — a full cast runs to fifteen names.
@@ -254,7 +262,7 @@
       const lead = (v) => (byBook ? v.title || v.narr : v.narr);
       const sub = (v) => (byBook ? v.narr : '');
       const longest = Math.max(...all.map((v) => v.duration));
-      const flagFor = (v) => v.dead ? ['Unavailable', 'dead'] : v.fullCast ? ['Full cast', 'cast'] : (v.duration && v.duration === longest && all.length > 1) ? ['Longest', 'plain'] : null;
+      const flagFor = (v) => v.dead ? [te('versions.unavailable', 'Unavailable'), 'dead'] : v.fullCast ? [te('versions.fullCast', 'Full cast'), 'cast'] : (v.duration && v.duration === longest && all.length > 1) ? [te('versions.longest', 'Longest'), 'plain'] : null;
       const rows = all.map((v) => {
         const active = v.id === cur.id;
         const flag = flagFor(v);
@@ -264,21 +272,21 @@
           <span class="ab-verrow__mark ${markCls}">${mark}</span>
           <span class="ab-verrow__body">
             <span class="ab-verrow__head"><span class="ab-verrow__narr">${esc(lead(v))}</span>${flag ? `<span class="ab-verflag ab-verflag--${flag[1]}">${flag[0]}</span>` : ''}</span>
-            ${sub(v) ? `<span class="ab-verrow__sub">Read by ${esc(sub(v))}</span>` : ''}
+            ${sub(v) ? `<span class="ab-verrow__sub">${te('versions.readBy', 'Read by {narrator}', { narrator: sub(v) })}</span>` : ''}
             <span class="ab-verrow__facts">${v.duration ? `<span class="ab-verrow__fact">${SVG.clockSm}${esc(fmtDur(v.duration))}</span>` : ''}${v.format ? `<span class="ab-verrow__sep">·</span><span>${esc(v.format)}</span>` : ''}</span>
-            ${v.started && !v.dead ? `<span class="ab-verrow__prog"><span class="ab-verrow__track"><span class="ab-verrow__fill" style="width:${Math.round(v.frac * 100)}%"></span></span><span class="ab-verrow__progtext">${Math.round(v.frac * 100)}% · ${esc(fmtDur(v.duration - v.pos))} left</span></span>` : ''}
+            ${v.started && !v.dead ? `<span class="ab-verrow__prog"><span class="ab-verrow__track"><span class="ab-verrow__fill" style="width:${Math.round(v.frac * 100)}%"></span></span><span class="ab-verrow__progtext">${Math.round(v.frac * 100)}% · ${te('versions.left', '{time} left', { time: fmtDur(v.duration - v.pos) })}</span></span>` : ''}
             ${v.dead ? `<span class="ab-verrow__dead">${esc(v.deadReason)}</span>` : ''}
           </span>
         </button>`;
       }).join('');
-      return `<button type="button" class="ab-ver${cur.fullCast ? ' ab-ver--cast' : ''}" aria-expanded="false" aria-haspopup="listbox" title="Choose a recording">
+      return `<button type="button" class="ab-ver${cur.fullCast ? ' ab-ver--cast' : ''}" aria-expanded="false" aria-haspopup="listbox" title="${te('versions.choose', 'Choose a recording')}">
           <span class="ab-ver__ico">${SVG.mic}</span>
           <span class="ab-ver__text"><span class="ab-ver__narr">${esc(lead(cur))}</span><span class="ab-ver__meta">${esc([byBook ? shortNames(cur.narr) : '', cur.duration ? fmtDur(cur.duration) : '', cur.format].filter(Boolean).join(' · '))}</span></span>
-          <span class="ab-ver__count">${all.length} ${byBook ? 'recordings' : 'versions'}</span>
+          <span class="ab-ver__count">${byBook ? te('versions.nRecordings', all.length === 1 ? '{count} recording' : '{count} recordings', { count: all.length }) : te('versions.nVersions', all.length === 1 ? '{count} version' : '{count} versions', { count: all.length })}</span>
           <span class="ab-ver__caret">${SVG.caret}</span>
         </button>
         <div class="ab-verpop" role="listbox" hidden>
-          <div class="ab-verpop__head"><span>Choose a recording</span><span class="ab-verpop__note">remembered per shelf</span></div>
+          <div class="ab-verpop__head"><span>${te('versions.choose', 'Choose a recording')}</span><span class="ab-verpop__note">${te('versions.remembered', 'remembered per shelf')}</span></div>
           <div class="ab-verpop__list">${rows}</div>
         </div>`;
     }
@@ -295,7 +303,7 @@
           <div class="ab-hero">
             <div class="ab-cover"><img alt="" src="${coverUrl}" onerror="this.style.display='none';this.parentNode.classList.add('ab-cover--none')"><span class="ab-cover__ph">${esc((series.title || '?').slice(0, 1).toUpperCase())}</span></div>
             <div class="ab-meta">
-              <h2 class="ab-title">${esc(series.title || 'Audiobook')}</h2>
+              <h2 class="ab-title">${esc(series.title || tr('player.audiobook', 'Audiobook'))}</h2>
               ${by ? `<div class="ab-author">${esc(by)}</div>` : ''}
               ${shelf ? versionSwitcherHtml(shelf) : ''}
               <div class="ab-narr"></div>
@@ -303,21 +311,21 @@
             </div>
           </div>
 
-          <input class="ab-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+          <input class="ab-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="${te('player.seek', 'Seek')}">
           <div class="ab-times"><span class="ab-cur">0:00</span><span class="ab-rem">-0:00</span></div>
 
           <div class="ab-controls">
-            <button class="ab-btn ab-back" title="Back 15s">${SVG.back15}</button>
-            <button class="ab-btn ab-btn--main ab-toggle" title="Play">${SVG.play}</button>
-            <button class="ab-btn ab-fwd" title="Forward 15s">${SVG.fwd15}</button>
+            <button class="ab-btn ab-back" title="${te('player.back15', 'Back 15s')}">${SVG.back15}</button>
+            <button class="ab-btn ab-btn--main ab-toggle" title="${te('player.play', 'Play')}">${SVG.play}</button>
+            <button class="ab-btn ab-fwd" title="${te('player.fwd15', 'Forward 15s')}">${SVG.fwd15}</button>
           </div>
           <div class="ab-notice" role="alert" hidden><span class="ab-notice__ico">${SVG.alert}</span><span class="ab-notice__text"></span></div>
 
           <div class="ab-bar">
             <button class="ab-chip ab-speed">${SVG.speed}<span class="ab-speed__v">1×</span></button>
-            <button class="ab-chip ab-chapbtn">${SVG.list} Chapters</button>
-            <button class="ab-chip ab-sleepbtn">${SVG.clock}<span class="ab-sleep__v"> Sleep</span></button>
-            <button class="ab-chip ab-markbtn">${SVG.mark} Bookmark</button>
+            <button class="ab-chip ab-chapbtn">${SVG.list} ${te('player.chapters', 'Chapters')}</button>
+            <button class="ab-chip ab-sleepbtn">${SVG.clock}<span class="ab-sleep__v"> ${te('player.sleep', 'Sleep')}</span></button>
+            <button class="ab-chip ab-markbtn">${SVG.mark} ${te('player.bookmark', 'Bookmark')}</button>
           </div>
 
           <div class="ab-panel ab-chapters" hidden></div>
@@ -347,7 +355,7 @@
         if (alt) {
           const b = document.createElement('button');
           const byBook = shelf.issues.length > 1 && new Set(shelf.issues.map((it) => String(it.title || '').trim().toLowerCase())).size > 1;
-          b.type = 'button'; b.className = 'ab-notice__alt'; b.textContent = `Play ${byBook && alt.title ? alt.title : shortNames(alt.narr)}`;
+          b.type = 'button'; b.className = 'ab-notice__alt'; b.textContent = tr('player.playAlt', 'Play {name}', { name: byBook && alt.title ? alt.title : shortNames(alt.narr) });
           b.onclick = () => shelf.pick(alt.id);
           noticeEl.appendChild(b);
         }
@@ -374,10 +382,10 @@
         let reason = '';
         try {
           const r = await fetch(streamUrl, { headers: { Range: 'bytes=0-0' } });
-          if (r.status >= 400) { try { reason = (await r.json())?.error || ''; } catch { /* not json */ } reason = reason || `the server answered ${r.status}`; }
+          if (r.status >= 400) { try { reason = (await r.json())?.error || ''; } catch { /* not json */ } reason = reason || tr('player.serverAnswered', 'the server answered {status}', { status: r.status }); }
           else if (r.body) { try { await r.body.cancel(); } catch { /* fine */ } }
-        } catch { reason = 'the app could not be reached'; }
-        const text = reason ? `Can't play this right now: ${reason}.` : 'Can\'t play this right now — the browser could not decode the stream.';
+        } catch { reason = tr('player.unreachable', 'the app could not be reached'); }
+        const text = reason ? tr('player.cantPlayReason', 'Can’t play this right now: {reason}.', { reason }) : tr('player.cantPlayDecode', 'Can’t play this right now — the browser could not decode the stream.');
         showNotice(text);
         toggle.classList.remove('is-busy');
         toastOnce(api, text);
@@ -390,9 +398,9 @@
       try {
         const info = (await ctx.get(`/api/audiobooks/info?issues=${id}`)).info || {};
         const meta = info[id] || {};
-        if (meta.narrators) narrEl.textContent = 'Read by ' + meta.narrators;
-        if (meta.duration) { duration = meta.duration; durEl.textContent = fmt(meta.duration) + ' • audiobook'; }
-        if (meta.unavailable) showNotice(`This title isn't available from its source right now${meta.unavailableReason ? ': ' + meta.unavailableReason : ''}. Press play to try again.`);
+        if (meta.narrators) narrEl.textContent = tr('versions.readBy', 'Read by {narrator}', { narrator: meta.narrators });
+        if (meta.duration) { duration = meta.duration; durEl.textContent = tr('player.durationLine', '{duration} • audiobook', { duration: fmt(meta.duration) }); }
+        if (meta.unavailable) showNotice(tr('player.unavailableNow', 'This title isn’t available from its source right now{reason}. Press play to try again.', { reason: meta.unavailableReason ? ': ' + meta.unavailableReason : '' }));
       } catch { /* non-fatal */ }
 
       // Resume position.
@@ -413,13 +421,13 @@
       };
 
       audio.addEventListener('loadedmetadata', () => {
-        if (!duration && audio.duration && Number.isFinite(audio.duration)) { duration = audio.duration; durEl.textContent = fmt(duration) + ' • audiobook'; }
+        if (!duration && audio.duration && Number.isFinite(audio.duration)) { duration = audio.duration; durEl.textContent = tr('player.durationLine', '{duration} • audiobook', { duration: fmt(duration) }); }
         if (startAt > 0 && startAt < (duration || audio.duration || Infinity) - 5) { try { audio.currentTime = startAt; } catch { /* not seekable yet */ } }
         paintTime();
       });
       audio.addEventListener('timeupdate', paintTime);
-      audio.addEventListener('play', () => { toggle.innerHTML = SVG.pause; toggle.title = 'Pause'; saveTimer = setInterval(saveProgress, 10000); });
-      audio.addEventListener('pause', () => { toggle.innerHTML = SVG.play; toggle.title = 'Play'; clearInterval(saveTimer); saveProgress(); renderAudiobookRails(); });
+      audio.addEventListener('play', () => { toggle.innerHTML = SVG.pause; toggle.title = tr('player.pause', 'Pause'); saveTimer = setInterval(saveProgress, 10000); });
+      audio.addEventListener('pause', () => { toggle.innerHTML = SVG.play; toggle.title = tr('player.play', 'Play'); clearInterval(saveTimer); saveProgress(); renderAudiobookRails(); });
       audio.addEventListener('ended', () => { clearInterval(saveTimer); saveProgress(); });
 
       toggle.onclick = () => {
@@ -451,12 +459,12 @@
         $('.ab-bookmarks').hidden = true;
         if (!chapPanel.hidden) { chapPanel.hidden = true; return; }
         if (chapters == null) {
-          chapPanel.innerHTML = '<div class="ab-panel__load">Loading chapters…</div>';
+          chapPanel.innerHTML = '<div class="ab-panel__load">' + te('chapters.loading', 'Loading chapters…') + '</div>';
           chapPanel.hidden = false;
           try { chapters = (await ctx.get(`/api/audiobooks/issue/${id}/chapters`)).chapters || []; } catch { chapters = []; }
           chapPanel.innerHTML = chapters.length
-            ? chapters.map((c, i) => `<button class="ab-chap" data-t="${c.start}"><span class="ab-chap__n">${i + 1}.</span> <span class="ab-chap__t">${esc(c.title || ('Chapter ' + (i + 1)))}</span><span class="ab-chap__time">${fmt(c.start)}</span></button>`).join('')
-            : '<div class="ab-panel__empty">No chapter marks for this audiobook.</div>';
+            ? chapters.map((c, i) => `<button class="ab-chap" data-t="${c.start}"><span class="ab-chap__n">${i + 1}.</span> <span class="ab-chap__t">${esc(c.title || tr('chapters.chapterN', 'Chapter {n}', { n: i + 1 }))}</span><span class="ab-chap__time">${fmt(c.start)}</span></button>`).join('')
+            : '<div class="ab-panel__empty">' + te('chapters.none', 'No chapter marks for this audiobook.') + '</div>';
           chapPanel.querySelectorAll('.ab-chap').forEach((el) => { el.onclick = () => { audio.currentTime = Number(el.dataset.t) || 0; audio.play().catch(() => {}); paintTime(); }; });
         } else chapPanel.hidden = false;
         highlightChapter(audio.currentTime || 0);
@@ -465,12 +473,12 @@
       // Sleep timer.
       const sleepV = $('.ab-sleep__v');
       $('.ab-sleepbtn').onclick = () => {
-        if (sleepTimer) { clearTimeout(sleepTimer); sleepTimer = null; sleepV.textContent = ' Sleep'; return; }
+        if (sleepTimer) { clearTimeout(sleepTimer); sleepTimer = null; sleepV.textContent = ' ' + tr('player.sleep', 'Sleep'); return; }
         const mins = SLEEP_MINS[(SLEEP_MINS.indexOf(currentSleep) + 1) % SLEEP_MINS.length];
         currentSleep = mins;
         clearTimeout(sleepTimer);
-        sleepTimer = setTimeout(() => { audio.pause(); sleepTimer = null; sleepV.textContent = ' Sleep'; }, mins * 60000);
-        sleepV.textContent = ` ${mins}m`;
+        sleepTimer = setTimeout(() => { audio.pause(); sleepTimer = null; sleepV.textContent = ' ' + tr('player.sleep', 'Sleep'); }, mins * 60000);
+        sleepV.textContent = ' ' + tr('player.sleepMins', '{mins}m', { mins });
       };
       let currentSleep = 0;
 
@@ -480,15 +488,15 @@
         let list = [];
         try { list = (await ctx.get(`/api/audiobooks/issue/${id}/bookmarks`)).bookmarks || []; } catch { /* none */ }
         bmPanel.innerHTML = list.length
-          ? list.map((b) => `<div class="ab-bm" data-id="${b.id}" data-t="${b.position}"><button class="ab-bm__go">${fmt(b.position)}</button><span class="ab-bm__note">${esc(b.note || 'Bookmark')}</span><button class="ab-bm__del" title="Delete">×</button></div>`).join('')
-          : '<div class="ab-panel__empty">No bookmarks yet — tap Bookmark to save your spot.</div>';
+          ? list.map((b) => `<div class="ab-bm" data-id="${b.id}" data-t="${b.position}"><button class="ab-bm__go">${fmt(b.position)}</button><span class="ab-bm__note">${esc(b.note || tr('bookmarks.defaultNote', 'Bookmark'))}</span><button class="ab-bm__del" title="${te('bookmarks.delete', 'Delete')}">×</button></div>`).join('')
+          : '<div class="ab-panel__empty">' + te('bookmarks.empty', 'No bookmarks yet — tap Bookmark to save your spot.') + '</div>';
         bmPanel.querySelectorAll('.ab-bm').forEach((el) => {
           el.querySelector('.ab-bm__go').onclick = () => { audio.currentTime = Number(el.dataset.t) || 0; audio.play().catch(() => {}); paintTime(); };
           el.querySelector('.ab-bm__del').onclick = async () => { try { await fetch(`/api/audiobooks/bookmarks/${el.dataset.id}`, { method: 'DELETE', headers: { 'content-type': 'application/json' } }); } catch { /* keep list */ } loadBookmarks(); };
         });
       };
       $('.ab-markbtn').onclick = async () => {
-        try { await ctx.post(`/api/audiobooks/issue/${id}/bookmarks`, { position: audio.currentTime || 0, note: chapterTitleAt(audio.currentTime || 0) }); api.toast && api.toast('Bookmark saved.', 'ok'); } catch { api.toast && api.toast('Could not save bookmark.', 'error'); }
+        try { await ctx.post(`/api/audiobooks/issue/${id}/bookmarks`, { position: audio.currentTime || 0, note: chapterTitleAt(audio.currentTime || 0) }); api.toast && api.toast(tr('bookmarks.saved', 'Bookmark saved.'), 'ok'); } catch { api.toast && api.toast(tr('bookmarks.saveFailed', 'Could not save bookmark.'), 'error'); }
         $('.ab-chapters').hidden = true; bmPanel.hidden = false; loadBookmarks();
       };
       const chapterTitleAt = (t) => {

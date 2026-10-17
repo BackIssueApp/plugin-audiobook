@@ -1,0 +1,58 @@
+{
+  "untitled": "Sin título",
+  "rails": {
+    "continueListening": "Seguir escuchando",
+    "newAudiobooks": "Audiolibros nuevos",
+    "hideTitle": "Ocultar esta fila — vuelve a activarla desde tu perfil",
+    "hideAria": "Ocultar {title}"
+  },
+  "prefs": {
+    "title": "Filas de audiolibros",
+    "note": "Qué filas de audiolibros aparecen en tu pantalla de inicio."
+  },
+  "versions": {
+    "unknownNarrator": "Narrador desconocido",
+    "sourceLost": "la fuente ya no tiene este archivo",
+    "unavailable": "No disponible",
+    "fullCast": "Reparto completo",
+    "longest": "La más larga",
+    "readBy": "Narrado por {narrator}",
+    "left": "quedan {time}",
+    "choose": "Elegir una grabación",
+    "nRecordings": { "one": "{count} grabación", "other": "{count} grabaciones" },
+    "nVersions": { "one": "{count} versión", "other": "{count} versiones" },
+    "remembered": "se recuerda por estantería"
+  },
+  "player": {
+    "noFile": "Este audiolibro aún no tiene ningún archivo reproducible.",
+    "audiobook": "Audiolibro",
+    "seek": "Buscar",
+    "back15": "Retroceder 15 s",
+    "play": "Reproducir",
+    "pause": "Pausa",
+    "fwd15": "Avanzar 15 s",
+    "chapters": "Capítulos",
+    "sleep": "Temporizador",
+    "sleepMins": "{mins} min",
+    "bookmark": "Marcador",
+    "playAlt": "Reproducir {name}",
+    "serverAnswered": "el servidor respondió {status}",
+    "unreachable": "no se pudo contactar con la aplicación",
+    "cantPlayReason": "No se puede reproducir ahora mismo: {reason}.",
+    "cantPlayDecode": "No se puede reproducir ahora mismo: el navegador no pudo descodificar la transmisión.",
+    "durationLine": "{duration} • audiolibro",
+    "unavailableNow": "Este título no está disponible en su fuente ahora mismo{reason}. Pulsa reproducir para volver a intentarlo."
+  },
+  "chapters": {
+    "loading": "Cargando capítulos…",
+    "chapterN": "Capítulo {n}",
+    "none": "Este audiolibro no tiene marcas de capítulo."
+  },
+  "bookmarks": {
+    "defaultNote": "Marcador",
+    "delete": "Eliminar",
+    "empty": "Todavía no hay marcadores: toca Marcador para guardar tu posición.",
+    "saved": "Marcador guardado.",
+    "saveFailed": "No se pudo guardar el marcador."
+  }
+}

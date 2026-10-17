@@ -1,0 +1,58 @@
+{
+  "untitled": "Sans titre",
+  "rails": {
+    "continueListening": "Reprendre l’écoute",
+    "newAudiobooks": "Nouveaux livres audio",
+    "hideTitle": "Masquer cette rangée — réactivez-la depuis votre profil",
+    "hideAria": "Masquer {title}"
+  },
+  "prefs": {
+    "title": "Rangées de livres audio",
+    "note": "Les rangées de livres audio affichées sur votre écran d’accueil."
+  },
+  "versions": {
+    "unknownNarrator": "Narrateur inconnu",
+    "sourceLost": "la source ne possède plus ce fichier",
+    "unavailable": "Indisponible",
+    "fullCast": "Distribution complète",
+    "longest": "Le plus long",
+    "readBy": "Lu par {narrator}",
+    "left": "{time} restantes",
+    "choose": "Choisir un enregistrement",
+    "nRecordings": { "one": "{count} enregistrement", "other": "{count} enregistrements" },
+    "nVersions": { "one": "{count} version", "other": "{count} versions" },
+    "remembered": "mémorisé par étagère"
+  },
+  "player": {
+    "noFile": "Ce livre audio n’a pas encore de fichier lisible.",
+    "audiobook": "Livre audio",
+    "seek": "Avancer ou reculer",
+    "back15": "Reculer de 15 s",
+    "play": "Lecture",
+    "pause": "Pause",
+    "fwd15": "Avancer de 15 s",
+    "chapters": "Chapitres",
+    "sleep": "Minuterie",
+    "sleepMins": "{mins} min",
+    "bookmark": "Signet",
+    "playAlt": "Écouter {name}",
+    "serverAnswered": "le serveur a répondu {status}",
+    "unreachable": "l’application est injoignable",
+    "cantPlayReason": "Lecture impossible pour le moment : {reason}.",
+    "cantPlayDecode": "Lecture impossible pour le moment — le navigateur n’a pas pu décoder le flux.",
+    "durationLine": "{duration} • livre audio",
+    "unavailableNow": "Ce titre n’est pas disponible auprès de sa source pour le moment{reason}. Appuyez sur lecture pour réessayer."
+  },
+  "chapters": {
+    "loading": "Chargement des chapitres…",
+    "chapterN": "Chapitre {n}",
+    "none": "Aucun repère de chapitre pour ce livre audio."
+  },
+  "bookmarks": {
+    "defaultNote": "Signet",
+    "delete": "Supprimer",
+    "empty": "Aucun signet pour l’instant — touchez Signet pour enregistrer votre position.",
+    "saved": "Signet enregistré.",
+    "saveFailed": "Impossible d’enregistrer le signet."
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "untitled": "Untitled",
+  "rails": {
+    "continueListening": "Continue listening",
+    "newAudiobooks": "New audiobooks",
+    "hideTitle": "Hide this rail — turn it back on from your Profile",
+    "hideAria": "Hide {title}"
+  },
+  "prefs": {
+    "title": "Audiobook rails",
+    "note": "Which audiobook rails appear on your home screen."
+  },
+  "versions": {
+    "unknownNarrator": "Unknown narrator",
+    "sourceLost": "the source no longer has this file",
+    "unavailable": "Unavailable",
+    "fullCast": "Full cast",
+    "longest": "Longest",
+    "readBy": "Read by {narrator}",
+    "left": "{time} left",
+    "choose": "Choose a recording",
+    "nRecordings": { "one": "{count} recording", "other": "{count} recordings" },
+    "nVersions": { "one": "{count} version", "other": "{count} versions" },
+    "remembered": "remembered per shelf"
+  },
+  "player": {
+    "noFile": "This audiobook has no playable file yet.",
+    "audiobook": "Audiobook",
+    "seek": "Seek",
+    "back15": "Back 15s",
+    "play": "Play",
+    "pause": "Pause",
+    "fwd15": "Forward 15s",
+    "chapters": "Chapters",
+    "sleep": "Sleep",
+    "sleepMins": "{mins}m",
+    "bookmark": "Bookmark",
+    "playAlt": "Play {name}",
+    "serverAnswered": "the server answered {status}",
+    "unreachable": "the app could not be reached",
+    "cantPlayReason": "Can’t play this right now: {reason}.",
+    "cantPlayDecode": "Can’t play this right now — the browser could not decode the stream.",
+    "durationLine": "{duration} • audiobook",
+    "unavailableNow": "This title isn’t available from its source right now{reason}. Press play to try again."
+  },
+  "chapters": {
+    "loading": "Loading chapters…",
+    "chapterN": "Chapter {n}",
+    "none": "No chapter marks for this audiobook."
+  },
+  "bookmarks": {
+    "defaultNote": "Bookmark",
+    "delete": "Delete",
+    "empty": "No bookmarks yet — tap Bookmark to save your spot.",
+    "saved": "Bookmark saved.",
+    "saveFailed": "Could not save bookmark."
+  }
+}
