@@ -19,8 +19,14 @@
     "readBy": "Letto da {narrator}",
     "left": "{time} rimanenti",
     "choose": "Scegli una registrazione",
-    "nRecordings": { "one": "{count} registrazione", "other": "{count} registrazioni" },
-    "nVersions": { "one": "{count} versione", "other": "{count} versioni" },
+    "nRecordings": {
+      "one": "{count} registrazione",
+      "other": "{count} registrazioni"
+    },
+    "nVersions": {
+      "one": "{count} versione",
+      "other": "{count} versioni"
+    },
     "remembered": "ricordato per scaffale"
   },
   "player": {
@@ -54,5 +60,34 @@
     "empty": "Nessun segnalibro per ora — tocca Segnalibro per salvare il punto.",
     "saved": "Segnalibro salvato.",
     "saveFailed": "Impossibile salvare il segnalibro."
+  },
+  "_shared": {
+    "plugins": {
+      "audiobooks": {
+        "description": "Biblioteca di audiolibri: un tipo di biblioteca Audiolibri sincronizzato su richiesta da una fonte remota, trasmesso in streaming anziché scaricato, con lettore nel browser: ripresa, capitoli, velocità, timer di spegnimento, segnalibri e statistiche di ascolto per utente"
+      }
+    },
+    "libraryTypes": {
+      "audiobook": "Audiolibri"
+    },
+    "permissions": {
+      "audiobooks": {
+        "use": {
+          "label": "Audiolibri",
+          "description": "Sfogliare e riprodurre gli audiolibri"
+        }
+      }
+    },
+    "jobs": {
+      "audiobooks-wanted": {
+        "label": "Recupera gli audiolibri mancanti"
+      },
+      "audiobooks-scan": {
+        "label": "Scansiona le biblioteche di audiolibri"
+      },
+      "audiobooks-remote-sync": {
+        "label": "Sincronizza il catalogo remoto degli audiolibri"
+      }
+    }
   }
 }

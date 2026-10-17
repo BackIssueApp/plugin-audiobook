@@ -19,8 +19,14 @@
     "readBy": "Voorgelezen door {narrator}",
     "left": "{time} resterend",
     "choose": "Kies een opname",
-    "nRecordings": { "one": "{count} opname", "other": "{count} opnames" },
-    "nVersions": { "one": "{count} versie", "other": "{count} versies" },
+    "nRecordings": {
+      "one": "{count} opname",
+      "other": "{count} opnames"
+    },
+    "nVersions": {
+      "one": "{count} versie",
+      "other": "{count} versies"
+    },
     "remembered": "per plank onthouden"
   },
   "player": {
@@ -54,5 +60,34 @@
     "empty": "Nog geen bladwijzers — tik op Bladwijzer om je plek te bewaren.",
     "saved": "Bladwijzer opgeslagen.",
     "saveFailed": "Bladwijzer kon niet worden opgeslagen."
+  },
+  "_shared": {
+    "plugins": {
+      "audiobooks": {
+        "description": "Luisterboekbibliotheek: een bibliotheektype Luisterboeken dat op aanvraag wordt gesynchroniseerd vanaf een externe bron, gestreamd in plaats van gedownload, met een speler in de browser: hervatten, hoofdstukken, afspeelsnelheid, slaaptimer, bladwijzers en luisterstatistieken per gebruiker"
+      }
+    },
+    "libraryTypes": {
+      "audiobook": "Luisterboeken"
+    },
+    "permissions": {
+      "audiobooks": {
+        "use": {
+          "label": "Luisterboeken",
+          "description": "Luisterboeken bekijken en afspelen"
+        }
+      }
+    },
+    "jobs": {
+      "audiobooks-wanted": {
+        "label": "Gezochte luisterboeken ophalen"
+      },
+      "audiobooks-scan": {
+        "label": "Luisterboekbibliotheken scannen"
+      },
+      "audiobooks-remote-sync": {
+        "label": "Externe luisterboekcatalogus synchroniseren"
+      }
+    }
   }
 }

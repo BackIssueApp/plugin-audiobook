@@ -19,8 +19,14 @@
     "readBy": "Lu par {narrator}",
     "left": "{time} restantes",
     "choose": "Choisir un enregistrement",
-    "nRecordings": { "one": "{count} enregistrement", "other": "{count} enregistrements" },
-    "nVersions": { "one": "{count} version", "other": "{count} versions" },
+    "nRecordings": {
+      "one": "{count} enregistrement",
+      "other": "{count} enregistrements"
+    },
+    "nVersions": {
+      "one": "{count} version",
+      "other": "{count} versions"
+    },
     "remembered": "mémorisé par étagère"
   },
   "player": {
@@ -54,5 +60,34 @@
     "empty": "Aucun signet pour l’instant — touchez Signet pour enregistrer votre position.",
     "saved": "Signet enregistré.",
     "saveFailed": "Impossible d’enregistrer le signet."
+  },
+  "_shared": {
+    "plugins": {
+      "audiobooks": {
+        "description": "Bibliothèque de livres audio : un type de bibliothèque Livres audio synchronisé à la demande depuis une source distante, diffusé en continu plutôt que téléchargé, avec un lecteur dans le navigateur — reprise, chapitres, vitesse de lecture, minuteur de sommeil, signets et statistiques d’écoute par utilisateur"
+      }
+    },
+    "libraryTypes": {
+      "audiobook": "Livres audio"
+    },
+    "permissions": {
+      "audiobooks": {
+        "use": {
+          "label": "Livres audio",
+          "description": "Parcourir et écouter les livres audio"
+        }
+      }
+    },
+    "jobs": {
+      "audiobooks-wanted": {
+        "label": "Récupérer les livres audio manquants"
+      },
+      "audiobooks-scan": {
+        "label": "Analyser les bibliothèques de livres audio"
+      },
+      "audiobooks-remote-sync": {
+        "label": "Synchroniser le catalogue distant de livres audio"
+      }
+    }
   }
 }

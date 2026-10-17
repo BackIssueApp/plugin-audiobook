@@ -19,8 +19,14 @@
     "readBy": "Read by {narrator}",
     "left": "{time} left",
     "choose": "Choose a recording",
-    "nRecordings": { "one": "{count} recording", "other": "{count} recordings" },
-    "nVersions": { "one": "{count} version", "other": "{count} versions" },
+    "nRecordings": {
+      "one": "{count} recording",
+      "other": "{count} recordings"
+    },
+    "nVersions": {
+      "one": "{count} version",
+      "other": "{count} versions"
+    },
     "remembered": "remembered per shelf"
   },
   "player": {
@@ -54,5 +60,34 @@
     "empty": "No bookmarks yet — tap Bookmark to save your spot.",
     "saved": "Bookmark saved.",
     "saveFailed": "Could not save bookmark."
+  },
+  "_shared": {
+    "plugins": {
+      "audiobooks": {
+        "description": "Audiobook library: an Audiobooks library type synced on demand from a remote source, streamed (range proxy) rather than downloaded, with an in-browser player — resume, chapters, playback speed, sleep timer, bookmarks, and per-user listening stats"
+      }
+    },
+    "libraryTypes": {
+      "audiobook": "Audiobooks"
+    },
+    "permissions": {
+      "audiobooks": {
+        "use": {
+          "label": "Audiobooks",
+          "description": "Browse and play audiobooks"
+        }
+      }
+    },
+    "jobs": {
+      "audiobooks-wanted": {
+        "label": "Fill wanted audiobooks"
+      },
+      "audiobooks-scan": {
+        "label": "Scan audiobook libraries"
+      },
+      "audiobooks-remote-sync": {
+        "label": "Sync remote audiobook catalog"
+      }
+    }
   }
 }

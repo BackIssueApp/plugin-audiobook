@@ -19,8 +19,14 @@
     "readBy": "Gelesen von {narrator}",
     "left": "noch {time}",
     "choose": "Aufnahme wählen",
-    "nRecordings": { "one": "{count} Aufnahme", "other": "{count} Aufnahmen" },
-    "nVersions": { "one": "{count} Version", "other": "{count} Versionen" },
+    "nRecordings": {
+      "one": "{count} Aufnahme",
+      "other": "{count} Aufnahmen"
+    },
+    "nVersions": {
+      "one": "{count} Version",
+      "other": "{count} Versionen"
+    },
     "remembered": "pro Regal gemerkt"
   },
   "player": {
@@ -54,5 +60,34 @@
     "empty": "Noch keine Lesezeichen — auf Lesezeichen tippen, um die Stelle zu speichern.",
     "saved": "Lesezeichen gespeichert.",
     "saveFailed": "Lesezeichen konnte nicht gespeichert werden."
+  },
+  "_shared": {
+    "plugins": {
+      "audiobooks": {
+        "description": "Hörbuch-Bibliothek: ein Bibliothekstyp „Hörbücher“, der bei Bedarf aus einer entfernten Quelle synchronisiert und gestreamt statt heruntergeladen wird, mit Player im Browser — Fortsetzen, Kapitel, Wiedergabetempo, Schlaftimer, Lesezeichen und Hörstatistik pro Nutzer"
+      }
+    },
+    "libraryTypes": {
+      "audiobook": "Hörbücher"
+    },
+    "permissions": {
+      "audiobooks": {
+        "use": {
+          "label": "Hörbücher",
+          "description": "Hörbücher durchsuchen und abspielen"
+        }
+      }
+    },
+    "jobs": {
+      "audiobooks-wanted": {
+        "label": "Gesuchte Hörbücher beschaffen"
+      },
+      "audiobooks-scan": {
+        "label": "Hörbuch-Bibliotheken scannen"
+      },
+      "audiobooks-remote-sync": {
+        "label": "Entfernten Hörbuchkatalog synchronisieren"
+      }
+    }
   }
 }

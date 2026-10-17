@@ -19,8 +19,14 @@
     "readBy": "Narrado por {narrator}",
     "left": "quedan {time}",
     "choose": "Elegir una grabación",
-    "nRecordings": { "one": "{count} grabación", "other": "{count} grabaciones" },
-    "nVersions": { "one": "{count} versión", "other": "{count} versiones" },
+    "nRecordings": {
+      "one": "{count} grabación",
+      "other": "{count} grabaciones"
+    },
+    "nVersions": {
+      "one": "{count} versión",
+      "other": "{count} versiones"
+    },
     "remembered": "se recuerda por estantería"
   },
   "player": {
@@ -54,5 +60,34 @@
     "empty": "Todavía no hay marcadores: toca Marcador para guardar tu posición.",
     "saved": "Marcador guardado.",
     "saveFailed": "No se pudo guardar el marcador."
+  },
+  "_shared": {
+    "plugins": {
+      "audiobooks": {
+        "description": "Biblioteca de audiolibros: un tipo de biblioteca Audiolibros sincronizado bajo demanda desde una fuente remota, reproducido en streaming en lugar de descargado, con reproductor en el navegador: reanudar, capítulos, velocidad, temporizador de sueño, marcadores y estadísticas de escucha por usuario"
+      }
+    },
+    "libraryTypes": {
+      "audiobook": "Audiolibros"
+    },
+    "permissions": {
+      "audiobooks": {
+        "use": {
+          "label": "Audiolibros",
+          "description": "Explorar y reproducir audiolibros"
+        }
+      }
+    },
+    "jobs": {
+      "audiobooks-wanted": {
+        "label": "Conseguir los audiolibros pendientes"
+      },
+      "audiobooks-scan": {
+        "label": "Escanear las bibliotecas de audiolibros"
+      },
+      "audiobooks-remote-sync": {
+        "label": "Sincronizar el catálogo remoto de audiolibros"
+      }
+    }
   }
 }
