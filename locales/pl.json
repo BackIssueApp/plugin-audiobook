@@ -1,0 +1,97 @@
+{
+  "untitled": "Bez tytułu",
+  "rails": {
+    "continueListening": "Słuchaj dalej",
+    "newAudiobooks": "Nowe audiobooki",
+    "hideTitle": "Ukryj ten pas — możesz go ponownie włączyć w swoim profilu",
+    "hideAria": "Ukryj {title}"
+  },
+  "prefs": {
+    "title": "Pasy audiobooków",
+    "note": "Które pasy audiobooków pojawiają się na ekranie głównym."
+  },
+  "versions": {
+    "unknownNarrator": "Nieznany lektor",
+    "sourceLost": "źródło nie ma już tego pliku",
+    "unavailable": "Niedostępne",
+    "fullCast": "Pełna obsada",
+    "longest": "Najdłuższe",
+    "readBy": "Czyta: {narrator}",
+    "left": "Zostało: {time}",
+    "choose": "Wybierz nagranie",
+    "nRecordings": {
+      "one": "{count} nagranie",
+      "few": "{count} nagrania",
+      "many": "{count} nagrań",
+      "other": "{count} nagrania"
+    },
+    "nVersions": {
+      "one": "{count} wersja",
+      "few": "{count} wersje",
+      "many": "{count} wersji",
+      "other": "{count} wersji"
+    },
+    "remembered": "zapamiętywane dla każdej półki"
+  },
+  "player": {
+    "noFile": "Ten audiobook nie ma jeszcze pliku do odtworzenia.",
+    "audiobook": "Audiobook",
+    "seek": "Przewiń",
+    "back15": "15 s wstecz",
+    "play": "Odtwórz",
+    "pause": "Wstrzymaj",
+    "fwd15": "15 s do przodu",
+    "chapters": "Rozdziały",
+    "sleep": "Wyłącznik czasowy",
+    "sleepMins": "{mins} min",
+    "bookmark": "Zakładka",
+    "playAlt": "Odtwórz {name}",
+    "serverAnswered": "serwer odpowiedział {status}",
+    "unreachable": "nie udało się połączyć z aplikacją",
+    "cantPlayReason": "Nie można teraz tego odtworzyć: {reason}.",
+    "cantPlayDecode": "Nie można teraz tego odtworzyć — przeglądarka nie potrafiła zdekodować strumienia.",
+    "durationLine": "{duration} • audiobook",
+    "unavailableNow": "Ten tytuł jest obecnie niedostępny w swoim źródle{reason}. Naciśnij odtwarzanie, aby spróbować ponownie."
+  },
+  "chapters": {
+    "loading": "Wczytywanie rozdziałów…",
+    "chapterN": "Rozdział {n}",
+    "none": "Ten audiobook nie ma znaczników rozdziałów."
+  },
+  "bookmarks": {
+    "defaultNote": "Zakładka",
+    "delete": "Usuń",
+    "empty": "Brak zakładek — stuknij Zakładka, aby zapisać miejsce.",
+    "saved": "Zapisano zakładkę.",
+    "saveFailed": "Nie udało się zapisać zakładki."
+  },
+  "_shared": {
+    "plugins": {
+      "audiobooks": {
+        "description": "Biblioteka audiobooków: typ biblioteki Audiobooki synchronizowany na żądanie ze zdalnego źródła, strumieniowany (proxy zakresów) zamiast pobierania, z odtwarzaczem w przeglądarce — wznawianie, rozdziały, prędkość odtwarzania, wyłącznik czasowy, zakładki i statystyki słuchania dla każdego użytkownika"
+      }
+    },
+    "libraryTypes": {
+      "audiobook": "Audiobooki"
+    },
+    "permissions": {
+      "audiobooks": {
+        "use": {
+          "label": "Audiobooki",
+          "description": "Przeglądanie i odtwarzanie audiobooków"
+        }
+      }
+    },
+    "jobs": {
+      "audiobooks-wanted": {
+        "label": "Uzupełnij brakujące audiobooki"
+      },
+      "audiobooks-scan": {
+        "label": "Skanuj biblioteki audiobooków"
+      },
+      "audiobooks-remote-sync": {
+        "label": "Synchronizuj zdalny katalog audiobooków"
+      }
+    }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "untitled": "无标题",
+  "rails": {
+    "continueListening": "继续收听",
+    "newAudiobooks": "新有声书",
+    "hideTitle": "隐藏此栏——可在个人资料中重新开启",
+    "hideAria": "隐藏 {title}"
+  },
+  "prefs": {
+    "title": "有声书栏目",
+    "note": "选择在主屏幕上显示哪些有声书栏目。"
+  },
+  "versions": {
+    "unknownNarrator": "未知朗读者",
+    "sourceLost": "来源已不再提供此文件",
+    "unavailable": "不可用",
+    "fullCast": "多人演播",
+    "longest": "最长",
+    "readBy": "朗读者：{narrator}",
+    "left": "剩余 {time}",
+    "choose": "选择录音版本",
+    "nRecordings": {
+      "other": "{count} 个录音"
+    },
+    "nVersions": {
+      "other": "{count} 个版本"
+    },
+    "remembered": "按书架分别记忆"
+  },
+  "player": {
+    "noFile": "此有声书还没有可播放的文件。",
+    "audiobook": "有声书",
+    "seek": "跳转",
+    "back15": "后退 15 秒",
+    "play": "播放",
+    "pause": "暂停",
+    "fwd15": "前进 15 秒",
+    "chapters": "章节",
+    "sleep": "定时关闭",
+    "sleepMins": "{mins} 分钟",
+    "bookmark": "书签",
+    "playAlt": "播放 {name}",
+    "serverAnswered": "服务器返回 {status}",
+    "unreachable": "无法连接到应用",
+    "cantPlayReason": "暂时无法播放：{reason}。",
+    "cantPlayDecode": "暂时无法播放——浏览器无法解码该音频流。",
+    "durationLine": "{duration} • 有声书",
+    "unavailableNow": "该作品目前无法从来源获取{reason}。点击播放重试。"
+  },
+  "chapters": {
+    "loading": "正在加载章节…",
+    "chapterN": "第 {n} 章",
+    "none": "此有声书没有章节标记。"
+  },
+  "bookmarks": {
+    "defaultNote": "书签",
+    "delete": "删除",
+    "empty": "还没有书签——点击“书签”保存当前位置。",
+    "saved": "书签已保存。",
+    "saveFailed": "无法保存书签。"
+  },
+  "_shared": {
+    "plugins": {
+      "audiobooks": {
+        "description": "有声书书库：按需从远程来源同步的有声书书库类型，以串流（范围代理）而非下载的方式播放，并提供浏览器内播放器——继续收听、章节、播放速度、定时关闭、书签以及每位用户的收听统计"
+      }
+    },
+    "libraryTypes": {
+      "audiobook": "有声书"
+    },
+    "permissions": {
+      "audiobooks": {
+        "use": {
+          "label": "有声书",
+          "description": "浏览和播放有声书"
+        }
+      }
+    },
+    "jobs": {
+      "audiobooks-wanted": {
+        "label": "补齐缺失的有声书"
+      },
+      "audiobooks-scan": {
+        "label": "扫描有声书书库"
+      },
+      "audiobooks-remote-sync": {
+        "label": "同步远程有声书目录"
+      }
+    }
+  }
+}

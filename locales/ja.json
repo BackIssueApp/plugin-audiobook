@@ -1,0 +1,91 @@
+{
+  "untitled": "無題",
+  "rails": {
+    "continueListening": "続きを聴く",
+    "newAudiobooks": "新着オーディオブック",
+    "hideTitle": "この棚を非表示にします（プロフィールから再表示できます）",
+    "hideAria": "{title} を非表示"
+  },
+  "prefs": {
+    "title": "オーディオブックの棚",
+    "note": "ホーム画面に表示するオーディオブックの棚を選びます。"
+  },
+  "versions": {
+    "unknownNarrator": "ナレーター不明",
+    "sourceLost": "ソースにこのファイルがなくなりました",
+    "unavailable": "利用できません",
+    "fullCast": "フルキャスト",
+    "longest": "最長",
+    "readBy": "ナレーター：{narrator}",
+    "left": "残り {time}",
+    "choose": "録音を選択",
+    "nRecordings": {
+      "other": "{count} 件の録音"
+    },
+    "nVersions": {
+      "other": "{count} 件のバージョン"
+    },
+    "remembered": "棚ごとに記憶されます"
+  },
+  "player": {
+    "noFile": "このオーディオブックには再生できるファイルがまだありません。",
+    "audiobook": "オーディオブック",
+    "seek": "シーク",
+    "back15": "15 秒戻る",
+    "play": "再生",
+    "pause": "一時停止",
+    "fwd15": "15 秒進む",
+    "chapters": "チャプター",
+    "sleep": "スリープ",
+    "sleepMins": "{mins} 分",
+    "bookmark": "ブックマーク",
+    "playAlt": "{name} を再生",
+    "serverAnswered": "サーバーの応答：{status}",
+    "unreachable": "アプリに接続できませんでした",
+    "cantPlayReason": "今は再生できません：{reason}。",
+    "cantPlayDecode": "今は再生できません。ブラウザーがストリームをデコードできませんでした。",
+    "durationLine": "{duration} • オーディオブック",
+    "unavailableNow": "このタイトルは現在ソースから利用できません{reason}。再生を押してもう一度お試しください。"
+  },
+  "chapters": {
+    "loading": "チャプターを読み込み中…",
+    "chapterN": "チャプター {n}",
+    "none": "このオーディオブックにはチャプターがありません。"
+  },
+  "bookmarks": {
+    "defaultNote": "ブックマーク",
+    "delete": "削除",
+    "empty": "ブックマークはまだありません。「ブックマーク」をタップすると位置を保存できます。",
+    "saved": "ブックマークを保存しました。",
+    "saveFailed": "ブックマークを保存できませんでした。"
+  },
+  "_shared": {
+    "plugins": {
+      "audiobooks": {
+        "description": "オーディオブックライブラリ：リモートソースからオンデマンドで同期するオーディオブック用ライブラリ種別。ダウンロードではなくストリーミング（レンジプロキシ）で再生し、ブラウザー内プレーヤーで続きから再生、チャプター、再生速度、スリープタイマー、ブックマーク、ユーザーごとの再生統計に対応"
+      }
+    },
+    "libraryTypes": {
+      "audiobook": "オーディオブック"
+    },
+    "permissions": {
+      "audiobooks": {
+        "use": {
+          "label": "オーディオブック",
+          "description": "オーディオブックを閲覧・再生します"
+        }
+      }
+    },
+    "jobs": {
+      "audiobooks-wanted": {
+        "label": "未入手のオーディオブックを補充"
+      },
+      "audiobooks-scan": {
+        "label": "オーディオブックライブラリをスキャン"
+      },
+      "audiobooks-remote-sync": {
+        "label": "リモートのオーディオブックカタログを同期"
+      }
+    }
+  }
+}
