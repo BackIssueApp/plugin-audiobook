@@ -53,7 +53,8 @@
     "unavailableNow": "Este título não está disponível na sua fonte neste momento{reason}. Pressione reproduzir para tentar de novo.",
     "markFinished": "Marcar como concluído",
     "markedFinished": "Marcado como concluído.",
-    "markFailed": "Ainda não é possível marcar como concluído. Tente de novo quando terminar de carregar."
+    "markFailed": "Ainda não é possível marcar como concluído. Tente de novo quando terminar de carregar.",
+    "bookmarks": "Marcadores"
   },
   "chapters": {
     "loading": "Carregando capítulos…",
@@ -65,7 +66,9 @@
     "delete": "Excluir",
     "empty": "Ainda não há marcadores — toque em Marcador para salvar a sua posição.",
     "saved": "Marcador salvo.",
-    "saveFailed": "Não foi possível salvar o marcador."
+    "saveFailed": "Não foi possível salvar o marcador.",
+    "add": "Adicionar marcador aqui",
+    "emptyHint": "Ainda não há marcadores. Use “Adicionar marcador aqui” para salvar a sua posição."
   },
   "_shared": {
     "plugins": {

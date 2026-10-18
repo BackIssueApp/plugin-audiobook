@@ -57,7 +57,8 @@
     "unavailableNow": "Ten tytuł jest obecnie niedostępny w swoim źródle{reason}. Naciśnij odtwarzanie, aby spróbować ponownie.",
     "markFinished": "Oznacz jako ukończone",
     "markedFinished": "Oznaczono jako ukończone.",
-    "markFailed": "Nie można jeszcze oznaczyć jako ukończone. Spróbuj ponownie po załadowaniu."
+    "markFailed": "Nie można jeszcze oznaczyć jako ukończone. Spróbuj ponownie po załadowaniu.",
+    "bookmarks": "Zakładki"
   },
   "chapters": {
     "loading": "Wczytywanie rozdziałów…",
@@ -69,7 +70,9 @@
     "delete": "Usuń",
     "empty": "Brak zakładek — stuknij Zakładka, aby zapisać miejsce.",
     "saved": "Zapisano zakładkę.",
-    "saveFailed": "Nie udało się zapisać zakładki."
+    "saveFailed": "Nie udało się zapisać zakładki.",
+    "add": "Dodaj zakładkę tutaj",
+    "emptyHint": "Brak zakładek. Użyj „Dodaj zakładkę tutaj”, aby zapisać miejsce."
   },
   "_shared": {
     "plugins": {

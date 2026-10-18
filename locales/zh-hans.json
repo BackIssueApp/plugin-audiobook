@@ -51,7 +51,8 @@
     "unavailableNow": "该作品目前无法从来源获取{reason}。点击播放重试。",
     "markFinished": "标记为已听完",
     "markedFinished": "已标记为已听完。",
-    "markFailed": "暂时无法标记为已听完，请在加载完成后重试。"
+    "markFailed": "暂时无法标记为已听完，请在加载完成后重试。",
+    "bookmarks": "书签"
   },
   "chapters": {
     "loading": "正在加载章节…",
@@ -63,7 +64,9 @@
     "delete": "删除",
     "empty": "还没有书签——点击“书签”保存当前位置。",
     "saved": "书签已保存。",
-    "saveFailed": "无法保存书签。"
+    "saveFailed": "无法保存书签。",
+    "add": "在此处添加书签",
+    "emptyHint": "还没有书签。使用“在此处添加书签”保存当前位置。"
   },
   "_shared": {
     "plugins": {

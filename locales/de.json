@@ -53,7 +53,8 @@
     "unavailableNow": "Dieser Titel ist bei seiner Quelle derzeit nicht verfügbar{reason}. Zum erneuten Versuch auf Abspielen drücken.",
     "markFinished": "Als beendet markieren",
     "markedFinished": "Als beendet markiert.",
-    "markFailed": "Kann noch nicht als beendet markiert werden. Versuch es erneut, sobald es geladen ist."
+    "markFailed": "Kann noch nicht als beendet markiert werden. Versuch es erneut, sobald es geladen ist.",
+    "bookmarks": "Lesezeichen"
   },
   "chapters": {
     "loading": "Kapitel werden geladen…",
@@ -65,7 +66,9 @@
     "delete": "Löschen",
     "empty": "Noch keine Lesezeichen — auf Lesezeichen tippen, um die Stelle zu speichern.",
     "saved": "Lesezeichen gespeichert.",
-    "saveFailed": "Lesezeichen konnte nicht gespeichert werden."
+    "saveFailed": "Lesezeichen konnte nicht gespeichert werden.",
+    "add": "Lesezeichen hier setzen",
+    "emptyHint": "Noch keine Lesezeichen. Mit „Lesezeichen hier setzen“ die Stelle speichern."
   },
   "_shared": {
     "plugins": {

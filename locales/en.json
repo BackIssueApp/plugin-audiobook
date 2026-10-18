@@ -53,7 +53,8 @@
     "unavailableNow": "This title isn’t available from its source right now{reason}. Press play to try again.",
     "markFinished": "Mark finished",
     "markedFinished": "Marked as finished.",
-    "markFailed": "Could not mark it finished yet. Try again once it has loaded."
+    "markFailed": "Could not mark it finished yet. Try again once it has loaded.",
+    "bookmarks": "Bookmarks"
   },
   "chapters": {
     "loading": "Loading chapters…",
@@ -65,7 +66,9 @@
     "delete": "Delete",
     "empty": "No bookmarks yet — tap Bookmark to save your spot.",
     "saved": "Bookmark saved.",
-    "saveFailed": "Could not save bookmark."
+    "saveFailed": "Could not save bookmark.",
+    "add": "Add bookmark here",
+    "emptyHint": "No bookmarks yet. Use Add bookmark here to save your spot."
   },
   "_shared": {
     "plugins": {

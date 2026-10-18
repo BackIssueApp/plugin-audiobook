@@ -53,7 +53,8 @@
     "unavailableNow": "Questo titolo non è disponibile dalla sua fonte al momento{reason}. Premi riproduci per riprovare.",
     "markFinished": "Segna come finito",
     "markedFinished": "Segnato come finito.",
-    "markFailed": "Non è ancora possibile segnarlo come finito. Riprova quando è caricato."
+    "markFailed": "Non è ancora possibile segnarlo come finito. Riprova quando è caricato.",
+    "bookmarks": "Segnalibri"
   },
   "chapters": {
     "loading": "Caricamento dei capitoli…",
@@ -65,7 +66,9 @@
     "delete": "Elimina",
     "empty": "Nessun segnalibro per ora — tocca Segnalibro per salvare il punto.",
     "saved": "Segnalibro salvato.",
-    "saveFailed": "Impossibile salvare il segnalibro."
+    "saveFailed": "Impossibile salvare il segnalibro.",
+    "add": "Aggiungi segnalibro qui",
+    "emptyHint": "Nessun segnalibro per ora. Usa «Aggiungi segnalibro qui» per salvare il punto."
   },
   "_shared": {
     "plugins": {

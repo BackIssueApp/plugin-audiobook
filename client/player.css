@@ -141,3 +141,9 @@
 }
 .ab-rail__menu-item:hover, .ab-rail__menu-item:focus-visible { background: var(--panel-2, #2a2a33); outline: none; }
 .ab-rail__menu-item svg { flex: none; opacity: .8; }
+
+/* Bookmarks list: the add button sits on top; the chip only opens the list. */
+.ab-bm__add { display: flex; align-items: center; gap: 8px; width: 100%; padding: 11px 14px; border: none; border-bottom: 1px solid #2a2536; background: transparent; color: var(--text); font: 600 13px var(--font-body, sans-serif); cursor: pointer; text-align: left; }
+.ab-bm__add:hover, .ab-bm__add:focus-visible { background: rgba(255,255,255,.04); outline: none; }
+.ab-bm__add svg { flex: none; opacity: .8; }
+.ab-bm__del { display: inline-flex; align-items: center; justify-content: center; }

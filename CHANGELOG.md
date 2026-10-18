@@ -27,6 +27,9 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ### Fixed
 
+- **Viewing bookmarks no longer adds one.** The Bookmarks button in the player
+  opens and closes your list. Adding a bookmark is the button at the top of
+  that list. Before, every tap saved a new bookmark.
 - **Catalogs from sources without "what's new" support keep updating.** After
   a full sync, later runs found nothing. They now walk the catalog again from
   the first page. Titles the source lists but can no longer serve are not

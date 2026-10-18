@@ -53,7 +53,8 @@
     "unavailableNow": "Deze titel is momenteel niet beschikbaar bij de bron{reason}. Druk op afspelen om het opnieuw te proberen.",
     "markFinished": "Markeren als uitgeluisterd",
     "markedFinished": "Gemarkeerd als uitgeluisterd.",
-    "markFailed": "Kan nog niet als uitgeluisterd worden gemarkeerd. Probeer het opnieuw zodra het geladen is."
+    "markFailed": "Kan nog niet als uitgeluisterd worden gemarkeerd. Probeer het opnieuw zodra het geladen is.",
+    "bookmarks": "Bladwijzers"
   },
   "chapters": {
     "loading": "Hoofdstukken laden…",
@@ -65,7 +66,9 @@
     "delete": "Verwijderen",
     "empty": "Nog geen bladwijzers — tik op Bladwijzer om je plek te bewaren.",
     "saved": "Bladwijzer opgeslagen.",
-    "saveFailed": "Bladwijzer kon niet worden opgeslagen."
+    "saveFailed": "Bladwijzer kon niet worden opgeslagen.",
+    "add": "Bladwijzer hier toevoegen",
+    "emptyHint": "Nog geen bladwijzers. Gebruik ‘Bladwijzer hier toevoegen’ om je plek te bewaren."
   },
   "_shared": {
     "plugins": {

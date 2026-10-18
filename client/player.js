@@ -375,7 +375,7 @@
             <button class="ab-chip ab-speed">${SVG.speed}<span class="ab-speed__v">1×</span></button>
             <button class="ab-chip ab-chapbtn">${SVG.list} ${te('player.chapters', 'Chapters')}</button>
             <button class="ab-chip ab-sleepbtn">${SVG.clock}<span class="ab-sleep__v"> ${te('player.sleep', 'Sleep')}</span></button>
-            <button class="ab-chip ab-markbtn">${SVG.mark} ${te('player.bookmark', 'Bookmark')}</button>
+            <button class="ab-chip ab-markbtn">${SVG.mark} ${te('player.bookmarks', 'Bookmarks')}</button>
             <button class="ab-chip ab-donebtn">${SVG.done} ${te('player.markFinished', 'Mark finished')}</button>
           </div>
 
@@ -553,17 +553,26 @@
       const loadBookmarks = async () => {
         let list = [];
         try { list = (await ctx.get(`/api/audiobooks/issue/${id}/bookmarks`)).bookmarks || []; } catch { /* none */ }
-        bmPanel.innerHTML = list.length
-          ? list.map((b) => `<div class="ab-bm" data-id="${b.id}" data-t="${b.position}"><button class="ab-bm__go">${fmt(b.position)}</button><span class="ab-bm__note">${esc(b.note || tr('bookmarks.defaultNote', 'Bookmark'))}</span><button class="ab-bm__del" title="${te('bookmarks.delete', 'Delete')}">×</button></div>`).join('')
-          : '<div class="ab-panel__empty">' + te('bookmarks.empty', 'No bookmarks yet — tap Bookmark to save your spot.') + '</div>';
+        const delIcon = (api.icon && api.icon('close', { size: 14 })) || '';
+        bmPanel.innerHTML = `<button class="ab-bm__add">${SVG.mark} ${te('bookmarks.add', 'Add bookmark here')}</button>` + (list.length
+          ? list.map((b) => `<div class="ab-bm" data-id="${b.id}" data-t="${b.position}"><button class="ab-bm__go">${fmt(b.position)}</button><span class="ab-bm__note">${esc(b.note || tr('bookmarks.defaultNote', 'Bookmark'))}</span><button class="ab-bm__del" title="${te('bookmarks.delete', 'Delete')}" aria-label="${te('bookmarks.delete', 'Delete')}">${delIcon}</button></div>`).join('')
+          : '<div class="ab-panel__empty">' + te('bookmarks.emptyHint', 'No bookmarks yet. Use Add bookmark here to save your spot.') + '</div>');
+        bmPanel.querySelector('.ab-bm__add').onclick = addBookmark;
         bmPanel.querySelectorAll('.ab-bm').forEach((el) => {
           el.querySelector('.ab-bm__go').onclick = () => { audio.currentTime = Number(el.dataset.t) || 0; audio.play().catch(() => {}); paintTime(); };
           el.querySelector('.ab-bm__del').onclick = async () => { try { await fetch(`/api/audiobooks/bookmarks/${el.dataset.id}`, { method: 'DELETE', headers: { 'content-type': 'application/json' } }); } catch { /* keep list */ } loadBookmarks(); };
         });
       };
-      $('.ab-markbtn').onclick = async () => {
+      async function addBookmark() {
         try { await ctx.post(`/api/audiobooks/issue/${id}/bookmarks`, { position: audio.currentTime || 0, note: chapterTitleAt(audio.currentTime || 0) }); api.toast && api.toast(tr('bookmarks.saved', 'Bookmark saved.'), 'ok'); } catch { api.toast && api.toast(tr('bookmarks.saveFailed', 'Could not save bookmark.'), 'error'); }
-        $('.ab-chapters').hidden = true; bmPanel.hidden = false; loadBookmarks();
+        loadBookmarks();
+      }
+      // The chip opens and closes the list (like Chapters); adding is a button
+      // inside it, so looking at your bookmarks never creates one.
+      $('.ab-markbtn').onclick = () => {
+        $('.ab-chapters').hidden = true;
+        if (!bmPanel.hidden) { bmPanel.hidden = true; return; }
+        bmPanel.hidden = false; loadBookmarks();
       };
       const chapterTitleAt = (t) => {
         if (!chapters || !chapters.length) return null;

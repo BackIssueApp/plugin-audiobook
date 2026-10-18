@@ -53,7 +53,8 @@
     "unavailableNow": "Ce titre n’est pas disponible auprès de sa source pour le moment{reason}. Appuyez sur lecture pour réessayer.",
     "markFinished": "Marquer comme terminé",
     "markedFinished": "Marqué comme terminé.",
-    "markFailed": "Impossible de le marquer comme terminé pour l’instant. Réessayez une fois le chargement fini."
+    "markFailed": "Impossible de le marquer comme terminé pour l’instant. Réessayez une fois le chargement fini.",
+    "bookmarks": "Signets"
   },
   "chapters": {
     "loading": "Chargement des chapitres…",
@@ -65,7 +66,9 @@
     "delete": "Supprimer",
     "empty": "Aucun signet pour l’instant — touchez Signet pour enregistrer votre position.",
     "saved": "Signet enregistré.",
-    "saveFailed": "Impossible d’enregistrer le signet."
+    "saveFailed": "Impossible d’enregistrer le signet.",
+    "add": "Ajouter un signet ici",
+    "emptyHint": "Aucun signet pour l’instant. Utilisez « Ajouter un signet ici » pour enregistrer votre position."
   },
   "_shared": {
     "plugins": {
