@@ -57,15 +57,30 @@ export async function runRemoteSync({
   // the reason it was re-imported. When the source confirms the old copy is
   // gone (404), drop it — otherwise the shelf shows the same book twice, one
   // of them dead.
+  // Returns true when the NEW entry itself turned out dead and was undone:
+  // a source can keep listing a record whose file is gone, and walking from
+  // page 1 again would otherwise bring back one pruned earlier.
+  const gone = async (src, remoteId) => {
+    const up = await src.openStream(null, remoteId, { range: 'bytes=0-0' });
+    if (up?.status === 404 || up?.status === 410) return true;
+    try { if (up?.body?.cancel) await up.body.cancel(); else up?.body?.destroy?.(); } catch { /* fine */ }
+    return false;
+  };
   const pruneDeadTwins = async (src, remoteId) => {
-    if (typeof src.openStream !== 'function' || typeof store.duplicateRemoteEntries !== 'function') return;
-    for (const twin of store.duplicateRemoteEntries(src.id, remoteId)) {
-      try {
-        const up = await src.openStream(null, twin.remote_id, { range: 'bytes=0-0' });
-        if (up?.status === 404 || up?.status === 410) { store.removeIssue(twin.issue_id); remoteSyncState.pruned++; }
-        else { try { if (up?.body?.cancel) await up.body.cancel(); else up?.body?.destroy?.(); } catch { /* fine */ } }
-      } catch { /* source unreachable right now: leave the twin alone */ }
+    if (typeof src.openStream !== 'function' || typeof store.duplicateRemoteEntries !== 'function') return false;
+    const twins = store.duplicateRemoteEntries(src.id, remoteId);
+    for (const twin of twins) {
+      try { if (await gone(src, twin.remote_id)) { store.removeIssue(twin.issue_id); remoteSyncState.pruned++; } }
+      catch { /* source unreachable right now: leave the twin alone */ }
     }
+    if (!twins.length) return false;
+    try {
+      if (!(await gone(src, remoteId))) return false;
+      const self = store.db.prepare('SELECT issue_id FROM audiobooks_files WHERE source=? AND remote_id=?').get(src.id, String(remoteId));
+      if (!self) return false;
+      store.removeIssue(self.issue_id);
+      return true;
+    } catch { return false; }
   };
   try {
     for (const src of chosen) {
@@ -77,9 +92,9 @@ export async function runRemoteSync({
       // One pass over the source: every page from the cursor (full), or the
       // pages of "what changed since" (incremental). Reports whether it saw
       // the end cleanly and how many pages actually carried titles.
-      const walk = async (incremental) => {
+      const walk = async (incremental, fromStart = false) => {
         remoteSyncState.mode = incremental ? 'incremental' : 'full';
-        let page = incremental ? 1 : (resetCursor ? 1 : Math.max(1, Number(store.remoteCursor(src.id)) || 1));
+        let page = incremental || resetCursor || fromStart ? 1 : Math.max(1, Number(store.remoteCursor(src.id)) || 1);
         let totalPages = Infinity;
         let clean = true; // false when stopped/capped part-way — not a finish
         let pagesSeen = 0;
@@ -101,7 +116,10 @@ export async function runRemoteSync({
             remoteSyncState.current = { remote_id: b.remote_id, title: b.title || String(b.remote_id) };
             try {
               const { created } = store.catalogRemote({ libraryId: lib.id, source: src.id, remoteId: b.remote_id, meta: b });
-              if (created) { remoteSyncState.created++; claimed++; await pruneDeadTwins(src, b.remote_id); } else remoteSyncState.updated++;
+              if (created) {
+                if (await pruneDeadTwins(src, b.remote_id)) continue; // a dead record: undone, counts as nothing
+                remoteSyncState.created++; claimed++;
+              } else remoteSyncState.updated++;
               remoteSyncState.done++;
             } catch (e) { remoteSyncState.error = String(e?.message || e); }
             emit();
@@ -120,6 +138,12 @@ export async function runRemoteSync({
       // anything added since sits behind the cursor. Follow it with the
       // incremental pass right away, so one click brings the catalog current.
       if (remoteSyncState.mode === 'full' && r.clean && r.pagesSeen === 0 && canCatchUp && !stopRequested()) r = await walk(true);
+      // A source that can't list "what changed" has no catch-up: once a walk
+      // has finished, the next run would start past the end and see nothing.
+      // Walk it again from page 1 (cataloging is idempotent).
+      else if (remoteSyncState.mode === 'full' && r.clean && r.pagesSeen === 0 && !canCatchUp && Number(store.remoteCursor(src.id)) > 1 && !stopRequested()) {
+        r = await walk(false, true);
+      }
       // Entries a play attempt already proved dead, whose twin still streams:
       // drop them now rather than waiting for a re-import to arrive.
       if (!stopRequested() && typeof store.unavailableWithTwin === 'function' && typeof src.openStream === 'function') {

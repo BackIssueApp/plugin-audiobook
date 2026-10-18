@@ -27,6 +27,10 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ### Fixed
 
+- **Catalogs from sources without "what's new" support keep updating.** After
+  a full sync, later runs found nothing. They now walk the catalog again from
+  the first page. Titles the source lists but can no longer serve are not
+  brought back.
 - **Continue listening shows only audiobooks in progress.** The home page rail
   no longer needs the Shelves plugin to tell started audiobooks from the rest.
   Without it, the rail listed the whole Audiobooks library.

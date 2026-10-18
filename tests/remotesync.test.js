@@ -185,3 +185,18 @@ test('the end-of-sync sweep removes entries a play attempt proved dead when thei
   assert.equal(remoteSyncStatus().pruned, 1);
   assert.deepEqual(store.db.prepare("SELECT remote_id FROM audiobooks_files WHERE source='fake'").all().map((r) => r.remote_id), ['live']);
 });
+
+test('a source without incremental support is walked again from page 1 once a walk has finished', async () => {
+  const { store } = boot();
+  let pages = [[book('n1', 'One'), book('n2', 'Two')], [book('n3', 'Three')]];
+  const calls = [];
+  const src = { id: 'plain', listPage: async (_cfg, page) => { calls.push(page); return { items: pages[page - 1] || [], page, totalPages: pages.length, total: 3 }; } };
+  await runRemoteSync({ store, sources: [src] });
+  assert.equal(remoteSyncStatus().created, 3);
+  // A new title appears on page 1 (newest first) after the walk finished.
+  pages = [[book('n4', 'Four (new)'), book('n1', 'One')], [book('n2', 'Two'), book('n3', 'Three')]];
+  calls.length = 0;
+  await runRemoteSync({ store, sources: [src] });
+  assert.equal(remoteSyncStatus().created, 1, 'the new title is found');
+  assert.ok(calls.includes(1), 'page 1 was asked for again');
+});
