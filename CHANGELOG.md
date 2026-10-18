@@ -17,6 +17,9 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ### Changed
 
+- **Audiobook folders are rescanned twice a day.** New files dropped into a
+  library folder used to wait for a library edit or a manual scan. Change or
+  turn off the schedule under Jobs.
 - **Books count as finished near the end.** A book is finished in its last two
   minutes, or its last 1% for a long book. It used to take the last 30
   seconds, so stopping at 99% of a long book left it on Continue listening for

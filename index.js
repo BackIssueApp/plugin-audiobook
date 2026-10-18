@@ -58,6 +58,10 @@ export default function register(api) {
     try { await matchNewAudiobooks(store, [hosted], { log: console.warn }); }
     catch (e) { console.warn('audiobooks: metadata matching skipped:', e?.message || e); }
   }
+  // New files dropped into an audiobook folder are picked up twice a day,
+  // the same as Books. A Jobs page edit persists and wins.
+  config.audiobooksScanCron ??= '0 */12 * * *';
+  config.audiobooksScanEnabled ??= true;
   api.registerJob?.({
     id: 'audiobooks-scan',
     label: 'Scan audiobook libraries',
