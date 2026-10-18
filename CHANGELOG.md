@@ -8,6 +8,12 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Continue listening shows only audiobooks in progress.** The home page rail
+  no longer needs the Shelves plugin to tell started audiobooks from the rest.
+  Without it, the rail listed the whole Audiobooks library.
+
 ## [0.4.0] — 2026-10-17
 
 ### Added

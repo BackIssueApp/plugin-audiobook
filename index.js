@@ -84,6 +84,32 @@ export default function register(api) {
   // Creating/editing an Audiobooks library indexes it right away (same UX as
   // comic and book libraries) instead of waiting for the scheduled scan.
   api.registerLibraryScanner?.({ type: 'audiobook', scan: () => runScan() });
+
+  // A status-only Library filter ({"status":"reading"} — the home page's
+  // Continue listening rail) answered here, so it works without the Shelves plugin.
+  // Anything richer (authors, decades, formats) is left to Shelves. Only for
+  // audiobook libraries; elsewhere it answers nothing and another resolver runs.
+  api.registerCollectionFilter?.({
+    id: 'audiobooks-status',
+    resolve(selection, ctx) {
+      const s = selection || {};
+      const status = s.status;
+      if (!['reading', 'finished', 'unread'].includes(status)) return null;
+      if (Object.keys(s).some((k) => k !== 'status' && (Array.isArray(s[k]) ? s[k].length : s[k] != null))) return null;
+      const db = ctx?.db; const libraryId = Number(ctx?.library);
+      if (!db || !libraryId) return null;
+      const lib = db.prepare('SELECT type FROM libraries WHERE id=?').get(libraryId);
+      if (lib?.type !== 'audiobook') return null;
+      const st = `CASE WHEN p.finished = 1 OR (p.duration > 0 AND p.position >= p.duration - 30) THEN 'finished' WHEN p.position > 0 THEN 'reading' ELSE 'unread' END`;
+      const started = db.prepare(`SELECT i.series_id id, MAX(${st} = 'finished') fin, MAX(${st} = 'reading') rd
+        FROM audiobooks_progress p JOIN issues i ON i.id = p.issue_id JOIN series s ON s.id = i.series_id
+        WHERE p.user_id = ? AND s.library_id = ? GROUP BY i.series_id`).all(ctx.userId || 0, libraryId);
+      if (status === 'reading') return started.filter((r) => r.rd && !r.fin).map((r) => r.id);
+      if (status === 'finished') return started.filter((r) => r.fin).map((r) => r.id);
+      const begun = new Set(started.filter((r) => r.rd || r.fin).map((r) => r.id));
+      return db.prepare('SELECT id FROM series WHERE library_id = ?').all(libraryId).map((r) => r.id).filter((id) => !begun.has(id));
+    },
+  });
   // An audiobook the download sources fetched (usenet, torrent, a site source
   // that serves audiobooks — e.g. for an approved request) is moved into the
   // library as Author/Title and catalogued like a scanned one.
