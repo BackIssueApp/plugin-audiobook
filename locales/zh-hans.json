@@ -4,7 +4,10 @@
     "continueListening": "继续收听",
     "newAudiobooks": "新有声书",
     "hideTitle": "隐藏此栏——可在个人资料中重新开启",
-    "hideAria": "隐藏 {title}"
+    "hideAria": "隐藏 {title}",
+    "removeFromContinue": "从“继续收听”中移除",
+    "removedFromContinue": "已从“继续收听”中移除。",
+    "removeFailed": "无法移除，请重试。"
   },
   "prefs": {
     "title": "有声书栏目",
@@ -45,7 +48,10 @@
     "cantPlayReason": "暂时无法播放：{reason}。",
     "cantPlayDecode": "暂时无法播放——浏览器无法解码该音频流。",
     "durationLine": "{duration} • 有声书",
-    "unavailableNow": "该作品目前无法从来源获取{reason}。点击播放重试。"
+    "unavailableNow": "该作品目前无法从来源获取{reason}。点击播放重试。",
+    "markFinished": "标记为已听完",
+    "markedFinished": "已标记为已听完。",
+    "markFailed": "暂时无法标记为已听完，请在加载完成后重试。"
   },
   "chapters": {
     "loading": "正在加载章节…",

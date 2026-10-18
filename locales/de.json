@@ -4,7 +4,10 @@
     "continueListening": "Weiterhören",
     "newAudiobooks": "Neue Hörbücher",
     "hideTitle": "Diese Leiste ausblenden — im Profil wieder einschalten",
-    "hideAria": "{title} ausblenden"
+    "hideAria": "{title} ausblenden",
+    "removeFromContinue": "Aus „Weiterhören“ entfernen",
+    "removedFromContinue": "Aus „Weiterhören“ entfernt.",
+    "removeFailed": "Konnte nicht entfernt werden. Versuch es noch einmal."
   },
   "prefs": {
     "title": "Hörbuchleisten",
@@ -47,7 +50,10 @@
     "cantPlayReason": "Wiedergabe derzeit nicht möglich: {reason}.",
     "cantPlayDecode": "Wiedergabe derzeit nicht möglich — der Browser konnte den Stream nicht dekodieren.",
     "durationLine": "{duration} • Hörbuch",
-    "unavailableNow": "Dieser Titel ist bei seiner Quelle derzeit nicht verfügbar{reason}. Zum erneuten Versuch auf Abspielen drücken."
+    "unavailableNow": "Dieser Titel ist bei seiner Quelle derzeit nicht verfügbar{reason}. Zum erneuten Versuch auf Abspielen drücken.",
+    "markFinished": "Als beendet markieren",
+    "markedFinished": "Als beendet markiert.",
+    "markFailed": "Kann noch nicht als beendet markiert werden. Versuch es erneut, sobald es geladen ist."
   },
   "chapters": {
     "loading": "Kapitel werden geladen…",

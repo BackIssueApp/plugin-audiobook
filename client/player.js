@@ -22,6 +22,7 @@
     caret: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
     clockSm: '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>',
     playSm: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" stroke="none"><path d="M7 4v16l13-8z"/></svg>',
+    done: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>',
     check: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
     ban: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
     alert: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
@@ -147,12 +148,12 @@
       head.append(h, hide);
       const track = document.createElement('div');
       track.className = 'ab-rail__track';
-      for (const it of items) track.appendChild(abCard(it));
+      for (const it of items) track.appendChild(abCard(it, shelf));
       sec.append(head, track);
       return sec;
     }
 
-    function abCard(it) {
+    function abCard(it, shelf) {
       const el = document.createElement('button');
       el.className = 'ab-rail__card';
       el.title = it.title || '';
@@ -161,7 +162,56 @@
         <span class="ab-rail__label"><b>${esc(it.title || tr('untitled', 'Untitled'))}</b></span>
         ${it.publisher ? `<small class="ab-rail__sub">${esc(it.publisher)}</small>` : ''}`;
       el.onclick = () => { if (api.openSeries) api.openSeries(it.id); };
+      // Continue listening: right-click (or long-press) offers to drop a book
+      // you've abandoned. It goes back to not started.
+      if (shelf && shelf.key === 'ab-continue') {
+        el.oncontextmenu = (e) => { e.preventDefault(); openAbMenu(e.clientX, e.clientY, it); };
+        let lp;
+        el.addEventListener('touchstart', (e) => {
+          const t = e.touches[0];
+          lp = setTimeout(() => { lp = null; openAbMenu(t.clientX, t.clientY, it); }, 500);
+        }, { passive: true });
+        const cancelLp = () => { if (lp) { clearTimeout(lp); lp = null; } };
+        el.addEventListener('touchend', cancelLp);
+        el.addEventListener('touchmove', cancelLp);
+      }
       return el;
+    }
+
+    let abMenuEl = null;
+    function closeAbMenu() {
+      if (abMenuEl) { abMenuEl.remove(); abMenuEl = null; }
+      document.removeEventListener('scroll', closeAbMenu, true);
+    }
+    function openAbMenu(x, y, it) {
+      closeAbMenu();
+      const menu = document.createElement('div');
+      menu.className = 'ab-rail__menu';
+      const rm = document.createElement('button');
+      rm.className = 'ab-rail__menu-item';
+      rm.innerHTML = `${(api.icon && api.icon('eye-off', { size: 15 })) || ''}<span>${esc(tr('rails.removeFromContinue', 'Remove from Continue listening'))}</span>`;
+      rm.onclick = async (e) => {
+        e.stopPropagation();
+        closeAbMenu();
+        try {
+          await api.post(`/api/audiobooks/series/${it.id}/reset-progress`, {});
+          if (api.toast) api.toast(tr('rails.removedFromContinue', 'Removed from Continue listening.'), 'ok');
+        } catch { if (api.toast) api.toast(tr('rails.removeFailed', 'Could not remove it. Try again.'), 'error'); }
+        renderAudiobookRails();
+      };
+      menu.appendChild(rm);
+      document.body.appendChild(menu);
+      const r = menu.getBoundingClientRect();
+      menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + 'px';
+      menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + 'px';
+      abMenuEl = menu;
+      setTimeout(() => {
+        document.addEventListener('click', closeAbMenu, { once: true });
+        document.addEventListener('scroll', closeAbMenu, true);
+        document.addEventListener('keydown', function esc2(ev) {
+          if (ev.key === 'Escape') { closeAbMenu(); document.removeEventListener('keydown', esc2); }
+        });
+      }, 0);
     }
 
     async function hideAbShelf(shelf) {
@@ -326,6 +376,7 @@
             <button class="ab-chip ab-chapbtn">${SVG.list} ${te('player.chapters', 'Chapters')}</button>
             <button class="ab-chip ab-sleepbtn">${SVG.clock}<span class="ab-sleep__v"> ${te('player.sleep', 'Sleep')}</span></button>
             <button class="ab-chip ab-markbtn">${SVG.mark} ${te('player.bookmark', 'Bookmark')}</button>
+            <button class="ab-chip ab-donebtn">${SVG.done} ${te('player.markFinished', 'Mark finished')}</button>
           </div>
 
           <div class="ab-panel ab-chapters" hidden></div>
@@ -415,9 +466,14 @@
         if (!seeking && dur) seek.value = String(Math.round((cur / dur) * 1000));
         highlightChapter(cur);
       };
+      // Set by Mark finished: saves report the end of the book until playback
+      // starts again, so a pause right after can't undo it.
+      let markedDone = false;
       const saveProgress = () => {
+        const dur = duration || audio.duration || 0;
+        if (markedDone) { if (dur) return ctx.post(`/api/audiobooks/issue/${id}/progress`, { position: dur, duration: dur }).catch(() => {}); return; }
         if (!audio.currentTime) return;
-        ctx.post(`/api/audiobooks/issue/${id}/progress`, { position: audio.currentTime, duration: duration || audio.duration || 0 }).catch(() => {});
+        ctx.post(`/api/audiobooks/issue/${id}/progress`, { position: audio.currentTime, duration: dur }).catch(() => {});
       };
 
       audio.addEventListener('loadedmetadata', () => {
@@ -426,7 +482,7 @@
         paintTime();
       });
       audio.addEventListener('timeupdate', paintTime);
-      audio.addEventListener('play', () => { toggle.innerHTML = SVG.pause; toggle.title = tr('player.pause', 'Pause'); saveTimer = setInterval(saveProgress, 10000); });
+      audio.addEventListener('play', () => { markedDone = false; toggle.innerHTML = SVG.pause; toggle.title = tr('player.pause', 'Pause'); saveTimer = setInterval(saveProgress, 10000); });
       audio.addEventListener('pause', () => { toggle.innerHTML = SVG.play; toggle.title = tr('player.play', 'Play'); clearInterval(saveTimer); saveProgress(); renderAudiobookRails(); });
       audio.addEventListener('ended', () => { clearInterval(saveTimer); saveProgress(); });
 
@@ -434,6 +490,16 @@
         if (!audio.paused) { audio.pause(); return; }
         toggle.classList.add('is-busy'); // connecting: a slow source should not look dead either
         audio.play().catch((e) => { if (e?.name === 'AbortError') { toggle.classList.remove('is-busy'); return; } explainFailure(); });
+      };
+      $('.ab-donebtn').onclick = async () => {
+        const dur = duration || audio.duration || 0;
+        if (!dur) { toastOnce(api, tr('player.markFailed', 'Could not mark it finished yet. Try again once it has loaded.')); return; }
+        markedDone = true;
+        clearInterval(saveTimer);
+        if (!audio.paused) audio.pause();
+        await saveProgress(); // wait for it, so the rails refresh without this book
+        renderAudiobookRails();
+        if (api.toast) api.toast(tr('player.markedFinished', 'Marked as finished.'), 'ok');
       };
       $('.ab-back').onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 15); paintTime(); };
       $('.ab-fwd').onclick = () => { audio.currentTime = Math.min((duration || audio.duration || 0), audio.currentTime + 15); paintTime(); };

@@ -126,3 +126,18 @@
 .ab-verrow__progtext { font: 10.5px var(--font-mono, monospace); color: var(--cyan, #2bd4d9); }
 .ab-verrow__dead { display: block; font-size: 11px; color: #ff8f6b; margin-top: 6px; line-height: 1.4; }
 @media (hover: none), (pointer: coarse) { .ab-verrow { padding: 14px; } .ab-ver { min-height: 44px; } }
+
+/* Rail card menu (Continue listening: Remove), same look as the reader's. */
+.ab-rail__menu {
+  position: fixed; z-index: 1500; min-width: 160px; padding: 4px;
+  background: var(--panel, #1b1b22); border: 1px solid var(--line, #2a2a33);
+  border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.5);
+}
+.ab-rail__menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 9px 11px; border: none; border-radius: 7px; background: transparent;
+  color: var(--text, #e8e8ee); font: 600 13px var(--font-body, system-ui); cursor: pointer;
+  text-align: left;
+}
+.ab-rail__menu-item:hover, .ab-rail__menu-item:focus-visible { background: var(--panel-2, #2a2a33); outline: none; }
+.ab-rail__menu-item svg { flex: none; opacity: .8; }

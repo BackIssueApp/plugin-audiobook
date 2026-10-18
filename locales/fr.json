@@ -4,7 +4,10 @@
     "continueListening": "Reprendre l’écoute",
     "newAudiobooks": "Nouveaux livres audio",
     "hideTitle": "Masquer cette rangée — réactivez-la depuis votre profil",
-    "hideAria": "Masquer {title}"
+    "hideAria": "Masquer {title}",
+    "removeFromContinue": "Retirer de « Reprendre l’écoute »",
+    "removedFromContinue": "Retiré de « Reprendre l’écoute ».",
+    "removeFailed": "Impossible de le retirer. Réessayez."
   },
   "prefs": {
     "title": "Rangées de livres audio",
@@ -47,7 +50,10 @@
     "cantPlayReason": "Lecture impossible pour le moment : {reason}.",
     "cantPlayDecode": "Lecture impossible pour le moment — le navigateur n’a pas pu décoder le flux.",
     "durationLine": "{duration} • livre audio",
-    "unavailableNow": "Ce titre n’est pas disponible auprès de sa source pour le moment{reason}. Appuyez sur lecture pour réessayer."
+    "unavailableNow": "Ce titre n’est pas disponible auprès de sa source pour le moment{reason}. Appuyez sur lecture pour réessayer.",
+    "markFinished": "Marquer comme terminé",
+    "markedFinished": "Marqué comme terminé.",
+    "markFailed": "Impossible de le marquer comme terminé pour l’instant. Réessayez une fois le chargement fini."
   },
   "chapters": {
     "loading": "Chargement des chapitres…",

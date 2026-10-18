@@ -8,6 +8,20 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+### Added
+
+- **Remove from Continue listening.** Right-click a cover on the Continue
+  listening rail, or long-press it, to drop a book you've abandoned. It goes
+  back to not started.
+- **Mark finished** in the player finishes a book wherever you are.
+
+### Changed
+
+- **Books count as finished near the end.** A book is finished in its last two
+  minutes, or its last 1% for a long book. It used to take the last 30
+  seconds, so stopping at 99% of a long book left it on Continue listening for
+  good. Progress saved under the old rule is caught up automatically.
+
 ### Fixed
 
 - **Continue listening shows only audiobooks in progress.** The home page rail

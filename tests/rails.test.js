@@ -53,3 +53,42 @@ test('status-only filter: reading / finished / unread per user, audiobook librar
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* reaped later */ }
   }
 });
+
+test('finished: the last two minutes, or the last 1% of a long book, never more than the last 10%', async () => {
+  const { isFinished } = await import('../store.js');
+  const tenHours = 36000;
+  assert.equal(isFinished(tenHours * 0.99, tenHours), true, '99% of a ten-hour book (six minutes left) is finished');
+  assert.equal(isFinished(tenHours * 0.98, tenHours), false);
+  assert.equal(isFinished(3600 - 100, 3600), true, 'an hour-long book with 100 seconds left is finished');
+  assert.equal(isFinished(3600 - 200, 3600), false);
+  assert.equal(isFinished(5, 60), false, 'a one-minute clip is not finished five seconds in');
+  assert.equal(isFinished(55, 60), true, 'but is in its last 10%');
+  assert.equal(isFinished(100, 0), false, 'no duration, no verdict');
+});
+
+test('store: Remove from Continue listening resets every part of the series for that user only', async () => {
+  const { openDb } = await import('../../../src/db.js');
+  const { openAudiobooksStore } = await import('../store.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ab-reset-'));
+  try {
+    const dbPath = path.join(dir, 'cat.db');
+    const core = openDb(dbPath);
+    const s = Number(core.prepare("INSERT INTO series (title, url, type) VALUES ('Saga', 'local:saga', 'audiobook')").run().lastInsertRowid);
+    const parts = [1, 2].map((n) => Number(core.prepare('INSERT INTO issues (series_id, title, url) VALUES (?, ?, ?)').run(s, 'Part ' + n, 'local:saga:' + n).lastInsertRowid));
+    core.close();
+    const store = openAudiobooksStore(dbPath);
+    store.setProgress(1, parts[0], { position: 900, duration: 3600 });
+    store.setProgress(1, parts[1], { position: 50, duration: 3600 });
+    store.setProgress(2, parts[0], { position: 700, duration: 3600 });
+    assert.equal(store.resetSeriesProgress(1, s), 2);
+    assert.equal(store.getProgress(1, parts[0]).position, 0);
+    assert.equal(store.getProgress(1, parts[1]).position, 0);
+    assert.equal(store.getProgress(2, parts[0]).position, 700, "another user's progress is untouched");
+    // A row saved under the old 30-second rule is caught up when the store opens.
+    store.db.prepare('UPDATE audiobooks_progress SET position=?, duration=?, finished=0 WHERE user_id=2').run(35640, 36000);
+    store.db.close();
+    const again = openAudiobooksStore(dbPath);
+    assert.equal(again.getProgress(2, parts[0]).finished, 1, 'backfilled to finished');
+    again.db.close();
+  } finally { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* reaped later */ } }
+});

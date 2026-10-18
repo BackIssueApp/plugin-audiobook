@@ -4,7 +4,10 @@
     "continueListening": "Continue listening",
     "newAudiobooks": "New audiobooks",
     "hideTitle": "Hide this rail — turn it back on from your Profile",
-    "hideAria": "Hide {title}"
+    "hideAria": "Hide {title}",
+    "removeFromContinue": "Remove from Continue listening",
+    "removedFromContinue": "Removed from Continue listening.",
+    "removeFailed": "Could not remove it. Try again."
   },
   "prefs": {
     "title": "Audiobook rails",
@@ -47,7 +50,10 @@
     "cantPlayReason": "Can’t play this right now: {reason}.",
     "cantPlayDecode": "Can’t play this right now — the browser could not decode the stream.",
     "durationLine": "{duration} • audiobook",
-    "unavailableNow": "This title isn’t available from its source right now{reason}. Press play to try again."
+    "unavailableNow": "This title isn’t available from its source right now{reason}. Press play to try again.",
+    "markFinished": "Mark finished",
+    "markedFinished": "Marked as finished.",
+    "markFailed": "Could not mark it finished yet. Try again once it has loaded."
   },
   "chapters": {
     "loading": "Loading chapters…",

@@ -38,6 +38,15 @@ const indexNumber = (n) => (Number.isFinite(Number(n)) && String(n).trim() !== '
 const year4 = (s) => (String(s || '').match(/(\d{4})/) || [])[1] || null;
 const nownow = () => new Date().toISOString();
 
+// When a listen counts as finished: within the last two minutes, or the last
+// 1% of a long book, whichever is more; never more than the last 10% (so a
+// short clip isn't finished the moment it starts). Stopping at 99% of a
+// ten-hour book used to leave it on Continue listening for good.
+const finishWindow = (duration) => Math.min(Math.max(120, duration * 0.01), duration * 0.1);
+export const isFinished = (position, duration) => duration > 0 && position >= duration - finishWindow(duration);
+/** The same rule in SQL, over a progress row aliased `a`. */
+export const FINISHED_SQL = (a) => `${a}.duration > 0 AND ${a}.position >= ${a}.duration - MIN(MAX(120, ${a}.duration * 0.01), ${a}.duration * 0.1)`;
+
 export function openAudiobooksStore(dbPath) {
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
@@ -152,6 +161,10 @@ export function openAudiobooksStore(dbPath) {
   for (const [col, decl] of [['synced_at', 'TEXT'], ['complete', 'INTEGER NOT NULL DEFAULT 0']]) {
     if (!rsCols.includes(col)) db.exec(`ALTER TABLE audiobooks_remote_sync ADD COLUMN ${col} ${decl}`);
   }
+
+  // Rows saved under the old 30-second rule that the current one counts as
+  // finished (idempotent; a no-op once caught up).
+  db.exec(`UPDATE audiobooks_progress AS p SET finished = 1 WHERE p.finished = 0 AND ${FINISHED_SQL('p')}`);
 
   const seriesByUrl = (url) => db.prepare('SELECT * FROM series WHERE url=?').get(url);
   const isStandalone = (seriesRow) => /^audiobook:l\d+:b:/.test(String(seriesRow?.url || ''));
@@ -497,12 +510,19 @@ export function openAudiobooksStore(dbPath) {
     },
 
     // ---- per-user progress ----
+    /** "Remove from Continue listening": every part of this series goes back
+     *  to not started for this user. */
+    resetSeriesProgress(userId, seriesId) {
+      return db.prepare(`UPDATE audiobooks_progress SET position=0, finished=0, updated_at=?
+        WHERE user_id=? AND issue_id IN (SELECT id FROM issues WHERE series_id=?)`)
+        .run(nownow(), userId || 0, seriesId).changes;
+    },
     getProgress(userId, issueId) {
       return db.prepare('SELECT position, duration, finished FROM audiobooks_progress WHERE user_id=? AND issue_id=?')
         .get(userId || 0, issueId) || { position: 0, duration: 0, finished: 0 };
     },
     setProgress(userId, issueId, { position = 0, duration = 0 }) {
-      const finished = duration > 0 && position >= duration - 30 ? 1 : 0;
+      const finished = isFinished(position, duration) ? 1 : 0;
       db.prepare(`INSERT INTO audiobooks_progress (user_id, issue_id, position, duration, finished, updated_at)
         VALUES (@u, @i, @p, @d, @f, @now)
         ON CONFLICT(user_id, issue_id) DO UPDATE SET position=@p, duration=@d, finished=@f, updated_at=@now`)

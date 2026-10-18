@@ -4,7 +4,10 @@
     "continueListening": "Continua ad ascoltare",
     "newAudiobooks": "Nuovi audiolibri",
     "hideTitle": "Nascondi questa fila — riattivala dal tuo profilo",
-    "hideAria": "Nascondi {title}"
+    "hideAria": "Nascondi {title}",
+    "removeFromContinue": "Rimuovi da «Continua ad ascoltare»",
+    "removedFromContinue": "Rimosso da «Continua ad ascoltare».",
+    "removeFailed": "Impossibile rimuoverlo. Riprova."
   },
   "prefs": {
     "title": "File di audiolibri",
@@ -47,7 +50,10 @@
     "cantPlayReason": "Riproduzione non possibile al momento: {reason}.",
     "cantPlayDecode": "Riproduzione non possibile al momento — il browser non è riuscito a decodificare lo stream.",
     "durationLine": "{duration} • audiolibro",
-    "unavailableNow": "Questo titolo non è disponibile dalla sua fonte al momento{reason}. Premi riproduci per riprovare."
+    "unavailableNow": "Questo titolo non è disponibile dalla sua fonte al momento{reason}. Premi riproduci per riprovare.",
+    "markFinished": "Segna come finito",
+    "markedFinished": "Segnato come finito.",
+    "markFailed": "Non è ancora possibile segnarlo come finito. Riprova quando è caricato."
   },
   "chapters": {
     "loading": "Caricamento dei capitoli…",

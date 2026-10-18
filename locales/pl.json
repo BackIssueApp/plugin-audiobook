@@ -4,7 +4,10 @@
     "continueListening": "Słuchaj dalej",
     "newAudiobooks": "Nowe audiobooki",
     "hideTitle": "Ukryj ten pas — możesz go ponownie włączyć w swoim profilu",
-    "hideAria": "Ukryj {title}"
+    "hideAria": "Ukryj {title}",
+    "removeFromContinue": "Usuń z „Słuchaj dalej”",
+    "removedFromContinue": "Usunięto z „Słuchaj dalej”.",
+    "removeFailed": "Nie udało się usunąć. Spróbuj ponownie."
   },
   "prefs": {
     "title": "Pasy audiobooków",
@@ -51,7 +54,10 @@
     "cantPlayReason": "Nie można teraz tego odtworzyć: {reason}.",
     "cantPlayDecode": "Nie można teraz tego odtworzyć — przeglądarka nie potrafiła zdekodować strumienia.",
     "durationLine": "{duration} • audiobook",
-    "unavailableNow": "Ten tytuł jest obecnie niedostępny w swoim źródle{reason}. Naciśnij odtwarzanie, aby spróbować ponownie."
+    "unavailableNow": "Ten tytuł jest obecnie niedostępny w swoim źródle{reason}. Naciśnij odtwarzanie, aby spróbować ponownie.",
+    "markFinished": "Oznacz jako ukończone",
+    "markedFinished": "Oznaczono jako ukończone.",
+    "markFailed": "Nie można jeszcze oznaczyć jako ukończone. Spróbuj ponownie po załadowaniu."
   },
   "chapters": {
     "loading": "Wczytywanie rozdziałów…",

@@ -4,7 +4,10 @@
     "continueListening": "Continuar a ouvir",
     "newAudiobooks": "Audiolivros novos",
     "hideTitle": "Ocultar esta fila — volte a ativá-la no seu perfil",
-    "hideAria": "Ocultar {title}"
+    "hideAria": "Ocultar {title}",
+    "removeFromContinue": "Remover de “Continuar a ouvir”",
+    "removedFromContinue": "Removido de “Continuar a ouvir”.",
+    "removeFailed": "Não foi possível remover. Tente novamente."
   },
   "prefs": {
     "title": "Filas de audiolivros",
@@ -47,7 +50,10 @@
     "cantPlayReason": "Não é possível reproduzir agora: {reason}.",
     "cantPlayDecode": "Não é possível reproduzir agora — o navegador não conseguiu descodificar a transmissão.",
     "durationLine": "{duration} • audiolivro",
-    "unavailableNow": "Este título não está disponível na sua fonte neste momento{reason}. Pressione reproduzir para tentar de novo."
+    "unavailableNow": "Este título não está disponível na sua fonte neste momento{reason}. Pressione reproduzir para tentar de novo.",
+    "markFinished": "Marcar como concluído",
+    "markedFinished": "Marcado como concluído.",
+    "markFailed": "Ainda não é possível marcar como concluído. Tente de novo quando terminar de carregar."
   },
   "chapters": {
     "loading": "Carregando capítulos…",

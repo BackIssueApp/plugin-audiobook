@@ -4,7 +4,10 @@
     "continueListening": "Verder luisteren",
     "newAudiobooks": "Nieuwe luisterboeken",
     "hideTitle": "Deze rij verbergen — zet hem weer aan via je profiel",
-    "hideAria": "{title} verbergen"
+    "hideAria": "{title} verbergen",
+    "removeFromContinue": "Verwijderen uit ‘Verder luisteren’",
+    "removedFromContinue": "Verwijderd uit ‘Verder luisteren’.",
+    "removeFailed": "Verwijderen is niet gelukt. Probeer het opnieuw."
   },
   "prefs": {
     "title": "Luisterboekrijen",
@@ -47,7 +50,10 @@
     "cantPlayReason": "Kan dit nu niet afspelen: {reason}.",
     "cantPlayDecode": "Kan dit nu niet afspelen — de browser kon de stream niet decoderen.",
     "durationLine": "{duration} • luisterboek",
-    "unavailableNow": "Deze titel is momenteel niet beschikbaar bij de bron{reason}. Druk op afspelen om het opnieuw te proberen."
+    "unavailableNow": "Deze titel is momenteel niet beschikbaar bij de bron{reason}. Druk op afspelen om het opnieuw te proberen.",
+    "markFinished": "Markeren als uitgeluisterd",
+    "markedFinished": "Gemarkeerd als uitgeluisterd.",
+    "markFailed": "Kan nog niet als uitgeluisterd worden gemarkeerd. Probeer het opnieuw zodra het geladen is."
   },
   "chapters": {
     "loading": "Hoofdstukken laden…",

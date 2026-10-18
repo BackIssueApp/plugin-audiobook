@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import { Readable } from 'node:stream';
 import config from '../../src/config.js';
 import { registeredRemoteMediaSources } from '../../src/plugins.js';
-import { openAudiobooksStore } from './store.js';
+import { openAudiobooksStore, FINISHED_SQL } from './store.js';
 import { scanLibraries, scanState, audiobookLibraries } from './scanner.js';
 import { makeAudiobookClient, matchNewAudiobooks } from './metadata.js';
 import { runRemoteSync, stopRemoteSync, remoteSyncStatus, isRemoteSyncRunning } from './remotesync.js';
@@ -100,7 +100,7 @@ export default function register(api) {
       if (!db || !libraryId) return null;
       const lib = db.prepare('SELECT type FROM libraries WHERE id=?').get(libraryId);
       if (lib?.type !== 'audiobook') return null;
-      const st = `CASE WHEN p.finished = 1 OR (p.duration > 0 AND p.position >= p.duration - 30) THEN 'finished' WHEN p.position > 0 THEN 'reading' ELSE 'unread' END`;
+      const st = `CASE WHEN p.finished = 1 OR (${FINISHED_SQL('p')}) THEN 'finished' WHEN p.position > 0 THEN 'reading' ELSE 'unread' END`;
       const started = db.prepare(`SELECT i.series_id id, MAX(${st} = 'finished') fin, MAX(${st} = 'reading') rd
         FROM audiobooks_progress p JOIN issues i ON i.id = p.issue_id JOIN series s ON s.id = i.series_id
         WHERE p.user_id = ? AND s.library_id = ? GROUP BY i.series_id`).all(ctx.userId || 0, libraryId);
@@ -235,6 +235,9 @@ export default function register(api) {
   }, { access: CAN_USE });
 
   // ---- Per-user progress (resume) --------------------------------------------
+  api.registerRoute('post', '/api/audiobooks/series/:id/reset-progress', (req, res) => {
+    res.json({ reset: store.resetSeriesProgress(uid(req), Number(req.params.id)) });
+  }, { access: CAN_USE });
   api.registerRoute('get', '/api/audiobooks/issue/:id/progress', (req, res) => {
     res.json(store.getProgress(uid(req), Number(req.params.id)));
   }, { access: CAN_USE });
