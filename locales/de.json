@@ -70,6 +70,35 @@
     "add": "Lesezeichen hier setzen",
     "emptyHint": "Noch keine Lesezeichen. Mit „Lesezeichen hier setzen“ die Stelle speichern."
   },
+  "wanted": {
+    "tab": "Hörbücher",
+    "loading": "Wird geladen…",
+    "loadFailed": "Die Liste der gesuchten Titel konnte nicht geladen werden.",
+    "emptyTitle": "Nichts gesucht",
+    "empty": "Titel, die du über + Hinzufügen aus dem Katalog holst, stehen hier, bis eine Quelle sie liefert.",
+    "count": {
+      "one": "{n} Hörbuch gesucht.",
+      "other": "{n} Hörbücher gesucht."
+    },
+    "schedule": "Jeder wird nach dem Zeitplan „Gesuchte Hörbücher beschaffen“ erneut gesucht.",
+    "added": "Hinzugefügt am {date}",
+    "tried": "Zuletzt gesucht am {date}",
+    "triedFailed": "Zuletzt gesucht am {date}: {outcome}",
+    "notTried": "Noch nicht gesucht",
+    "searchNow": "Jetzt suchen",
+    "searching": "Wird gesucht…",
+    "cancel": "Abbrechen",
+    "cancelled": "{title} wird nicht mehr gesucht.",
+    "cancelFailed": "Abbrechen fehlgeschlagen: {error}",
+    "inLibrary": "{title} ist in der Bibliothek.",
+    "downloading": "{title} wird heruntergeladen.",
+    "alreadyDownloading": "{title} wird bereits heruntergeladen.",
+    "noMatch": "Noch keine Quelle hat {title}. Der Titel bleibt gesucht.",
+    "noSources": "Keine Downloadquelle für Hörbücher ist eingeschaltet (Einstellungen → Download).",
+    "noLibrary": "Es gibt keine Hörbücher-Bibliothek zum Ablegen. Lege eine unter Einstellungen → Bibliothek an.",
+    "unsupported": "Dieser Server ist zu alt, um Hörbücher herunterzuladen.",
+    "failed": "Die Suche ist fehlgeschlagen: {error}"
+  },
   "_shared": {
     "plugins": {
       "audiobooks": {

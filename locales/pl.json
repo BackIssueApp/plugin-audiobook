@@ -74,6 +74,37 @@
     "add": "Dodaj zakładkę tutaj",
     "emptyHint": "Brak zakładek. Użyj „Dodaj zakładkę tutaj”, aby zapisać miejsce."
   },
+  "wanted": {
+    "tab": "Audiobooki",
+    "loading": "Wczytywanie…",
+    "loadFailed": "Nie udało się wczytać listy poszukiwanych.",
+    "emptyTitle": "Nic nie jest poszukiwane",
+    "empty": "Tytuły dodane z katalogu przyciskiem + Dodaj są tu, dopóki źródło ich nie dostarczy.",
+    "count": {
+      "one": "{n} poszukiwany audiobook.",
+      "few": "{n} poszukiwane audiobooki.",
+      "many": "{n} poszukiwanych audiobooków.",
+      "other": "{n} poszukiwanego audiobooka."
+    },
+    "schedule": "Każdy jest szukany ponownie według harmonogramu „Uzupełnij brakujące audiobooki”.",
+    "added": "Dodano {date}",
+    "tried": "Ostatnio szukano {date}",
+    "triedFailed": "Ostatnio szukano {date}: {outcome}",
+    "notTried": "Jeszcze nie szukano",
+    "searchNow": "Szukaj teraz",
+    "searching": "Szukanie…",
+    "cancel": "Anuluj",
+    "cancelled": "{title} nie jest już poszukiwany.",
+    "cancelFailed": "Nie udało się anulować: {error}",
+    "inLibrary": "{title} jest w bibliotece.",
+    "downloading": "{title} jest pobierany.",
+    "alreadyDownloading": "{title} jest już pobierany.",
+    "noMatch": "Żadne źródło nie ma jeszcze {title}. Pozostaje poszukiwany.",
+    "noSources": "Nie włączono żadnego źródła pobierania z audiobookami (Ustawienia → Pobieranie).",
+    "noLibrary": "Nie ma biblioteki typu Audiobooki, do której można go dodać. Utwórz ją w Ustawienia → Biblioteka.",
+    "unsupported": "Ten serwer jest za stary, aby pobierać audiobooki.",
+    "failed": "Wyszukiwanie nie powiodło się: {error}"
+  },
   "_shared": {
     "plugins": {
       "audiobooks": {

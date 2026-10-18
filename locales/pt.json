@@ -70,6 +70,35 @@
     "add": "Adicionar marcador aqui",
     "emptyHint": "Ainda não há marcadores. Use «Adicionar marcador aqui» para guardar a sua posição."
   },
+  "wanted": {
+    "tab": "Audiolivros",
+    "loading": "A carregar…",
+    "loadFailed": "Não foi possível carregar a lista de procurados.",
+    "emptyTitle": "Nada procurado",
+    "empty": "Os títulos que adiciona a partir do catálogo com + Adicionar aparecem aqui até uma fonte os entregar.",
+    "count": {
+      "one": "{n} audiolivro procurado.",
+      "other": "{n} audiolivros procurados."
+    },
+    "schedule": "Cada um volta a ser procurado segundo o agendamento «Obter os audiolivros em falta».",
+    "added": "Adicionado a {date}",
+    "tried": "Última procura a {date}",
+    "triedFailed": "Última procura a {date}: {outcome}",
+    "notTried": "Ainda não procurado",
+    "searchNow": "Procurar agora",
+    "searching": "A procurar…",
+    "cancel": "Cancelar",
+    "cancelled": "{title} deixou de ser procurado.",
+    "cancelFailed": "Não foi possível cancelar: {error}",
+    "inLibrary": "{title} está na biblioteca.",
+    "downloading": "{title} está a ser transferido.",
+    "alreadyDownloading": "{title} já está a ser transferido.",
+    "noMatch": "Nenhuma fonte tem {title} ainda. Continua procurado.",
+    "noSources": "Nenhuma fonte de transferência com audiolivros está ativa (Definições → Transferências).",
+    "noLibrary": "Não há nenhuma biblioteca de audiolivros onde o arquivar. Crie uma em Definições → Biblioteca.",
+    "unsupported": "Este servidor é demasiado antigo para transferir audiolivros.",
+    "failed": "A procura falhou: {error}"
+  },
   "_shared": {
     "plugins": {
       "audiobooks": {

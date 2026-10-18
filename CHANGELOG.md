@@ -10,6 +10,11 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ### Added
 
+- **Wanted audiobooks have a screen.** The Wanted page gets an Audiobooks tab
+  listing every audiobook you asked for that hasn't arrived, with when its last
+  search ran and what it found. **Search now** tries the sources again without
+  waiting for Fill wanted audiobooks, and **Cancel** drops it. Needs BackIssue 0.9.2 or
+  newer; older versions keep the list API only.
 - **Remove from Continue listening.** Right-click a cover on the Continue
   listening rail, or long-press it, to drop a book you've abandoned. It goes
   back to not started.

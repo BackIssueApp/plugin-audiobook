@@ -70,6 +70,35 @@
     "add": "Bladwijzer hier toevoegen",
     "emptyHint": "Nog geen bladwijzers. Gebruik ‘Bladwijzer hier toevoegen’ om je plek te bewaren."
   },
+  "wanted": {
+    "tab": "Luisterboeken",
+    "loading": "Laden…",
+    "loadFailed": "De lijst met gezochte titels kon niet worden geladen.",
+    "emptyTitle": "Niets gezocht",
+    "empty": "Titels die je met + Toevoegen uit de catalogus haalt, staan hier tot een bron ze levert.",
+    "count": {
+      "one": "{n} luisterboek gezocht.",
+      "other": "{n} luisterboeken gezocht."
+    },
+    "schedule": "Elke titel wordt opnieuw gezocht volgens het schema ‘Gezochte luisterboeken ophalen’.",
+    "added": "Toegevoegd op {date}",
+    "tried": "Laatst gezocht op {date}",
+    "triedFailed": "Laatst gezocht op {date}: {outcome}",
+    "notTried": "Nog niet gezocht",
+    "searchNow": "Nu zoeken",
+    "searching": "Zoeken…",
+    "cancel": "Annuleren",
+    "cancelled": "{title} wordt niet meer gezocht.",
+    "cancelFailed": "Annuleren mislukt: {error}",
+    "inLibrary": "{title} staat in de bibliotheek.",
+    "downloading": "{title} wordt gedownload.",
+    "alreadyDownloading": "{title} wordt al gedownload.",
+    "noMatch": "Nog geen bron heeft {title}. De titel blijft gezocht.",
+    "noSources": "Er staat geen downloadbron voor luisterboeken aan (Instellingen → Downloaden).",
+    "noLibrary": "Er is geen luisterboekenbibliotheek om het in op te bergen. Maak er een aan onder Instellingen → Bibliotheek.",
+    "unsupported": "Deze server is te oud om luisterboeken te downloaden.",
+    "failed": "Het zoeken is mislukt: {error}"
+  },
   "_shared": {
     "plugins": {
       "audiobooks": {

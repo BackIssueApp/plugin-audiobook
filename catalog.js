@@ -142,6 +142,18 @@ export function registerCatalog({ api, store, client: hosted, uid, CAN_USE, CAN_
     res.json({ wanted: store.listWanted() });
   }, { access: CAN_USE });
 
+  // Search again now for one wanted title instead of waiting for the schedule.
+  // A copy that arrived some other way (a scan, an import) just clears it.
+  api.registerRoute('post', '/api/audiobooks/wanted/:id/retry', async (req, res) => {
+    remember(req);
+    const w = store.wantedById(Number(req.params.id));
+    if (!w) return res.status(404).json({ error: 'not wanted' });
+    const on = store.onShelf({ matchId: w.match_id, title: w.title, author: w.author });
+    if (on) { store.removeWanted(w.id); return res.json({ status: 'on-shelf', seriesId: on.seriesId ?? null }); }
+    const r = await tryWanted(w);
+    res.json({ ...r, note: addNote(r, w) });
+  }, { access: CAN_MANAGE });
+
   api.registerRoute('delete', '/api/audiobooks/wanted/:id', (req, res) => {
     const id = Number(req.params.id);
     if (!store.wantedById(id)) return res.status(404).json({ error: 'not wanted' });
