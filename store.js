@@ -607,6 +607,7 @@ export function openAudiobooksStore(dbPath) {
 
     /** Per-issue playback info for the client (scoped to the given issue ids). */
     audiobookInfoMap(issueIds) {
+      const roundSecs = (s) => (s == null || !Number.isFinite(Number(s)) ? null : Math.round(Number(s)));
       const out = {};
       const ids = (issueIds || []).map(Number).filter(Boolean);
       if (!ids.length) return out;
@@ -617,7 +618,8 @@ export function openAudiobooksStore(dbPath) {
         const local = r.path && !r.source;
         const tl = local ? bookTimeline(r.issue_id) : null;
         out[r.issue_id] = {
-          format: r.format, duration: tl?.duration ?? r.duration, narrators: r.narrators,
+          // Whole seconds: the mobile apps read the length as an integer.
+          format: r.format, duration: roundSecs(tl?.duration ?? r.duration), narrators: r.narrators,
           remote: !!r.source && !r.path, audiobook: true,
           unavailable: !!r.unavailable_at, unavailableReason: r.unavailable_reason || null,
           ...(tl && tl.parts.length > 1 ? { parts: tl.parts.map(({ part, start, duration }) => ({ part, start, duration })) } : {}),

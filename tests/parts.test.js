@@ -131,10 +131,12 @@ test('scan: a book folder becomes one book with parts; old per-file progress and
     route(m, p)({ params: {}, query: {}, headers: {}, user: { id: 5 }, ...req }, res);
   });
   const info = (await call('get', '/api/audiobooks/info', { query: { issues: String(issueId) } })).body.info[issueId];
-  assert.equal(Math.round(info.duration), 600);
+  assert.equal(info.duration, 600);
+  assert.ok(Number.isInteger(info.duration), "whole seconds: the mobile apps read an integer");
   assert.equal(info.parts.length, 3);
   const ch = (await call('get', '/api/audiobooks/issue/:id/chapters', { params: { id: String(issueId) } })).body;
   assert.equal(ch.parts.length, 3);
+  assert.ok(Number.isInteger(ch.duration));
   assert.equal((await call('get', '/api/audiobooks/issue/:id/stream', { params: { id: String(issueId) }, query: { part: '3' } })).file, files[2]);
   assert.equal((await call('get', '/api/audiobooks/issue/:id/stream', { params: { id: String(issueId) } })).file, files[0], 'no part: the first');
 

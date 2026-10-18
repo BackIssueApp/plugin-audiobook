@@ -43,6 +43,10 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ### Fixed
 
+- **A scanned book's details load in the mobile apps.** A book's length went
+  out with a fraction of a second, which the Android and iOS apps couldn't
+  read, so a series holding such a book showed no lengths, narrators or
+  formats there. Lengths are now sent in whole seconds.
 - **Viewing bookmarks no longer adds one.** The Bookmarks button in the player
   opens and closes your list. Adding a bookmark is the button at the top of
   that list. Before, every tap saved a new bookmark.

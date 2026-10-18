@@ -140,6 +140,11 @@ export default function register(api) {
     } catch { /* fresh install without libraries yet */ }
   }, 15_000).unref?.();
 
+  // A book's length goes out in whole seconds: the mobile apps read it as an
+  // integer, and a probed file's fractional length failed their whole
+  // response. (Part starts and lengths stay exact.)
+  const wholeSeconds = (s) => (s == null || !Number.isFinite(Number(s)) ? null : Math.round(Number(s)));
+
   // ---- Streaming: range proxy (remote) or cached file (materialized) ----------
   // The <audio> element issues Range requests to seek; forward them upstream and
   // pipe the 206 straight through, so nothing buffers a whole 1GB file in memory.
@@ -221,7 +226,7 @@ export default function register(api) {
     // A local book: chapters and parts in book time, from its files' headers.
     if (row.path && !row.source) {
       const tl = store.bookTimeline(issueId);
-      return res.json({ chapters: tl.chapters, duration: tl.duration, parts: tl.parts });
+      return res.json({ chapters: tl.chapters, duration: wholeSeconds(tl.duration), parts: tl.parts });
     }
     let chapters = [];
     try { chapters = row.chapters ? JSON.parse(row.chapters) : []; } catch { chapters = []; }
@@ -235,7 +240,7 @@ export default function register(api) {
         } catch { /* leave empty */ }
       }
     }
-    res.json({ chapters, duration: row.duration ?? null });
+    res.json({ chapters, duration: wholeSeconds(row.duration) });
   }, { access: CAN_USE });
 
   // Per-issue playback info, scoped to the requested issue ids (client detects
