@@ -59,6 +59,7 @@
   "chapters": {
     "loading": "Caricamento dei capitoli…",
     "chapterN": "Capitolo {n}",
+    "partN": "Parte {n}",
     "none": "Nessun segnacapitolo per questo audiolibro."
   },
   "bookmarks": {

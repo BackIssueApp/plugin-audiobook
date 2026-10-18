@@ -59,6 +59,7 @@
   "chapters": {
     "loading": "Kapitel werden geladen…",
     "chapterN": "Kapitel {n}",
+    "partN": "Teil {n}",
     "none": "Keine Kapitelmarken für dieses Hörbuch."
   },
   "bookmarks": {

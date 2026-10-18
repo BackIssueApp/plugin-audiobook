@@ -57,6 +57,7 @@
   "chapters": {
     "loading": "正在加载章节…",
     "chapterN": "第 {n} 章",
+    "partN": "第 {n} 部分",
     "none": "此有声书没有章节标记。"
   },
   "bookmarks": {

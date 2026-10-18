@@ -136,6 +136,11 @@ export function openAudiobooksStore(dbPath) {
     ['unavailable_at', 'TEXT'], ['unavailable_reason', 'TEXT'],
     // lower(trim(issue title)) — see the twin indexes below.
     ['title_key', 'TEXT'],
+    // A book spread over several files: each file is a row on the same issue,
+    // numbered from 1 in play order (NULL = a single-file book). Each local
+    // file's own length and chapter marks, read from its headers, and the
+    // mtime they were read at (so a rescan re-reads only a changed file).
+    ['part', 'INTEGER'], ['file_duration', 'REAL'], ['embedded_chapters', 'TEXT'], ['probed_mtime', 'INTEGER'],
   ]) {
     if (!abCols.includes(col)) db.exec(`ALTER TABLE audiobooks_files ADD COLUMN ${col} ${decl}`);
   }
@@ -148,6 +153,7 @@ export function openAudiobooksStore(dbPath) {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_abfiles_twin ON audiobooks_files (source, library_id, title_key);
     CREATE INDEX IF NOT EXISTS idx_abfiles_unavailable ON audiobooks_files (source, unavailable_at);
+    CREATE INDEX IF NOT EXISTS idx_abfiles_part ON audiobooks_files (issue_id, part);
   `);
   /** Fill title_key for a source's rows that predate the column (or lost it). */
   const ensureTitleKeys = (source) => {
@@ -166,10 +172,84 @@ export function openAudiobooksStore(dbPath) {
   // finished (idempotent; a no-op once caught up).
   db.exec(`UPDATE audiobooks_progress AS p SET finished = 1 WHERE p.finished = 0 AND ${FINISHED_SQL('p')}`);
 
+  /** Write a local file's audiobooks_files row (insert or refresh in place). */
+  function upsertFileRow({ path: p, libraryId, seriesId, issueId, format, size, mtime, titleSource, part = null, probe = null }) {
+    db.prepare(`INSERT INTO audiobooks_files
+        (path, library_id, series_id, issue_id, format, size, mtime, title_source, added_at, part, file_duration, embedded_chapters, probed_mtime)
+      VALUES (@path, @lib, @sid, @iid, @format, @size, @mtime, @title_source, @now, @part, @fdur, @echap, @pm)
+      ON CONFLICT(path) DO UPDATE SET
+        library_id=excluded.library_id, series_id=excluded.series_id, issue_id=excluded.issue_id,
+        format=excluded.format, size=excluded.size, mtime=excluded.mtime,
+        title_source=excluded.title_source, part=excluded.part,
+        file_duration=COALESCE(excluded.file_duration, CASE WHEN excluded.probed_mtime IS NULL THEN file_duration END),
+        embedded_chapters=CASE WHEN excluded.probed_mtime IS NULL THEN embedded_chapters ELSE excluded.embedded_chapters END,
+        probed_mtime=COALESCE(excluded.probed_mtime, probed_mtime)`)
+      .run({
+        path: p, lib: libraryId, sid: seriesId, iid: issueId, format,
+        size: size ?? null, mtime: mtime ?? null, title_source: titleSource || null, now: nownow(), part,
+        fdur: probe?.duration ?? null, echap: probe?.chapters ? JSON.stringify(probe.chapters) : null,
+        pm: probe ? (mtime ?? 0) : null,
+      });
+  }
   const seriesByUrl = (url) => db.prepare('SELECT * FROM series WHERE url=?').get(url);
   const isStandalone = (seriesRow) => /^audiobook:l\d+:b:/.test(String(seriesRow?.url || ''));
   const authorsOf = (seriesRow) => String(seriesRow?.publisher || '').split(',').map((a) => a.trim()).filter(Boolean);
-  const fileByIssue = (issueId) => db.prepare('SELECT * FROM audiobooks_files WHERE issue_id=?').get(issueId);
+  // The book's first (or only) file row.
+  const fileByIssue = (issueId) => db.prepare('SELECT * FROM audiobooks_files WHERE issue_id=? ORDER BY COALESCE(part, 1) LIMIT 1').get(issueId);
+  /** Every file of a book, in play order. */
+  const partsOf = (issueId) => db.prepare('SELECT * FROM audiobooks_files WHERE issue_id=? ORDER BY COALESCE(part, 1), path').all(issueId);
+  const parseJson = (s) => { try { const v = s ? JSON.parse(s) : null; return Array.isArray(v) ? v : null; } catch { return null; } };
+  /** A local book as one timeline: its total length, its chapters in book
+   *  time, and where each part starts. Embedded chapter marks win; a part
+   *  without any becomes one chapter of its own ({ title: null, part }, which
+   *  the player names "Part n"). Remote or unprobed books fall back to the
+   *  stored duration and chapters. */
+  function bookTimeline(issueId) {
+    const rows = partsOf(issueId);
+    if (!rows.length) return null;
+    if (rows.length === 1) {
+      const r = rows[0];
+      return {
+        duration: r.file_duration ?? r.duration ?? null,
+        chapters: parseJson(r.embedded_chapters) || parseJson(r.chapters) || [],
+        parts: [],
+      };
+    }
+    let t = 0;
+    const parts = [], chapters = [];
+    rows.forEach((r, i) => {
+      const n = r.part || i + 1;
+      const len = r.file_duration || 0;
+      parts.push({ part: n, start: t, duration: len || null, name: path.basename(r.path || '', path.extname(r.path || '')) });
+      const own = parseJson(r.embedded_chapters);
+      if (own && own.length) for (const c of own) chapters.push({ title: c.title || null, start: t + (Number(c.start) || 0) });
+      else chapters.push({ title: null, start: t, part: n });
+      t += len;
+    });
+    return { duration: t || rows[0].duration || null, chapters, parts };
+  }
+  /** Move what users kept on an issue that no longer stands for a book (a
+   *  file's own entry, before its folder became one multi-part book) onto the
+   *  book: progress and bookmarks shift by where that file starts in it. The
+   *  old issue goes once no file row points at it. */
+  function retireIssue(oldId, newId, offset = 0, total = 0) {
+    if (!oldId || oldId === newId) return;
+    if (db.prepare('SELECT 1 x FROM audiobooks_files WHERE issue_id=? LIMIT 1').get(oldId)) return;
+    for (const p of db.prepare('SELECT user_id, position, updated_at FROM audiobooks_progress WHERE issue_id=? AND position > 0').all(oldId)) {
+      const pos = offset + p.position;
+      db.prepare(`INSERT INTO audiobooks_progress (user_id, issue_id, position, duration, finished, updated_at)
+          VALUES (@u, @i, @p, @d, 0, @at)
+        ON CONFLICT(user_id, issue_id) DO UPDATE SET
+          position = MAX(position, excluded.position), duration = MAX(duration, excluded.duration),
+          updated_at = MAX(COALESCE(updated_at, ''), COALESCE(excluded.updated_at, ''))`)
+        .run({ u: p.user_id, i: newId, p: pos, d: total || 0, at: p.updated_at || nownow() });
+    }
+    db.prepare('UPDATE audiobooks_bookmarks SET issue_id=?, position=position+? WHERE issue_id=?').run(newId, offset, oldId);
+    db.prepare('DELETE FROM audiobooks_progress WHERE issue_id=?').run(oldId);
+    const old = db.prepare('SELECT series_id FROM issues WHERE id=?').get(oldId);
+    db.prepare("DELETE FROM issues WHERE id=? AND url LIKE 'audiobook%'").run(oldId);
+    if (old) db.prepare(`DELETE FROM series WHERE id=? AND url LIKE 'audiobook:%' AND NOT EXISTS (SELECT 1 FROM issues WHERE series_id=?)`).run(old.series_id, old.series_id);
+  }
 
   const api = {
     db,
@@ -272,7 +352,8 @@ export function openAudiobooksStore(dbPath) {
      *  local file). A filename-derived title is flagged title_source so the
      *  metadata match may upgrade it; identity is sticky per path so a re-parse
      *  renames the standalone series in place rather than spawning a duplicate. */
-    catalogFile({ libraryId, path: p, format, size, mtime, meta = {} }) {
+    catalogFile({ libraryId, path: p, format, size, mtime, meta = {}, issueKey = null, part = null, probe = null }) {
+      const iurl = issueKey || issueUrlFor(p);
       const author = meta.author || null;
       const standalone = !meta.series;
       const title = meta.title || 'Untitled';
@@ -313,8 +394,8 @@ export function openAudiobooksStore(dbPath) {
           VALUES (?, ?, ?, ?, 'done', ?)
           ON CONFLICT(url) DO UPDATE SET series_id=excluded.series_id, title=excluded.title,
             issue_number=excluded.issue_number, status='done', file_path=excluded.file_path`)
-          .run(seriesId, issueTitle, issueNum, issueUrlFor(p), p);
-        const issueId = db.prepare('SELECT id FROM issues WHERE url=?').get(issueUrlFor(p)).id;
+          .run(seriesId, issueTitle, issueNum, iurl, p);
+        const issueId = db.prepare('SELECT id FROM issues WHERE url=?').get(iurl).id;
         // A regroup left the old series behind — prune it if now empty.
         if (prevSeries && prevSeries.id !== seriesId) {
           const left = db.prepare('SELECT COUNT(*) n FROM issues WHERE series_id=?').get(prevSeries.id).n;
@@ -327,25 +408,53 @@ export function openAudiobooksStore(dbPath) {
           page_count: null, has_metadata: 1, valid: 1, error: null, verified: 0,
         });
         linkLibraryFile(db, p, seriesId, issueId);
-        db.prepare(`INSERT INTO audiobooks_files
-            (path, library_id, series_id, issue_id, format, size, mtime, title_source, added_at)
-          VALUES (@path, @lib, @sid, @iid, @format, @size, @mtime, @title_source, @now)
-          ON CONFLICT(path) DO UPDATE SET
-            library_id=excluded.library_id, series_id=excluded.series_id, issue_id=excluded.issue_id,
-            format=excluded.format, size=excluded.size, mtime=excluded.mtime,
-            title_source=excluded.title_source`)
-          .run({ path: p, lib: libraryId, sid: seriesId, iid: issueId, format,
-            size: size ?? null, mtime: mtime ?? null, title_source: meta.title_source || null, now: nownow() });
+        upsertFileRow({ path: p, libraryId, seriesId, issueId, format, size, mtime, titleSource: meta.title_source, part, probe });
+        // The file used to be its own book (or part of another): carry what
+        // users kept on that entry over, and drop it.
+        if (prev?.issue_id && prev.issue_id !== issueId) retireIssue(prev.issue_id, issueId);
         return { seriesId, issueId };
       });
       return tx();
     },
 
+    /** Catalog a book that spans several local files (one folder, files in
+     *  play order) as ONE issue with numbered parts. Each file's earlier entry
+     *  (from before it was grouped) hands its progress and bookmarks over at
+     *  that part's place in the book. files = [{ path, size, mtime, probe }]. */
+    catalogBook({ libraryId, files, meta = {} }) {
+      if (!files.length) return null;
+      const key = 'audiobookdir:' + path.dirname(files[0].path);
+      const tx = db.transaction(() => {
+        const prevIds = files.map((f) => db.prepare('SELECT issue_id FROM audiobooks_files WHERE path=?').get(f.path)?.issue_id ?? null);
+        const first = files[0];
+        const { seriesId, issueId } = api.catalogFile({ libraryId, path: first.path, format: first.format, size: first.size, mtime: first.mtime, meta, issueKey: key, part: 1, probe: first.probe });
+        files.slice(1).forEach((f, i) => {
+          upsertLibraryFile(db, {
+            path: f.path, dir: path.dirname(f.path), name: path.basename(f.path), size: f.size, mtime: f.mtime,
+            page_count: null, has_metadata: 1, valid: 1, error: null, verified: 0,
+          });
+          linkLibraryFile(db, f.path, seriesId, issueId);
+          upsertFileRow({ path: f.path, libraryId, seriesId, issueId, format: f.format, size: f.size, mtime: f.mtime, titleSource: meta.title_source, part: i + 2, probe: f.probe });
+        });
+        // Rows of this book whose file is no longer in the folder's set.
+        const keep = new Set(files.map((f) => f.path));
+        for (const r of partsOf(issueId)) {
+          if (r.path && !keep.has(r.path)) { deleteLibraryFile(db, r.path); db.prepare('DELETE FROM audiobooks_files WHERE path=?').run(r.path); }
+        }
+        const tl = bookTimeline(issueId);
+        files.forEach((f, i) => retireIssue(prevIds[i], issueId, tl?.parts[i]?.start || 0, tl?.duration || 0));
+        return { seriesId, issueId };
+      });
+      return tx();
+    },
+    partsOf,
+    bookTimeline,
+
     /** path → { path, mtime, size, issue_id, source } for one library — the
      *  incremental-scan skip index. Remote entries (path NULL) key to `null` and
      *  never collide with a real path. */
     pathIndex(libraryId) {
-      const rows = db.prepare('SELECT path, mtime, size, issue_id, source FROM audiobooks_files WHERE library_id=?').all(libraryId);
+      const rows = db.prepare('SELECT path, mtime, size, issue_id, source, part, probed_mtime FROM audiobooks_files WHERE library_id=?').all(libraryId);
       return new Map(rows.map((r) => [r.path, r]));
     },
     /** Are this file's catalog rows still in place? A local file needs its
@@ -367,12 +476,14 @@ export function openAudiobooksStore(dbPath) {
       const tx = db.transaction(() => {
         for (const r of gone) {
           deleteLibraryFile(db, r.path);
-          if (r.issue_id != null) {
+          db.prepare('DELETE FROM audiobooks_files WHERE path=?').run(r.path);
+          // One missing part of a multi-part book doesn't take the book with it.
+          const left = r.issue_id != null && db.prepare('SELECT 1 x FROM audiobooks_files WHERE issue_id=? LIMIT 1').get(r.issue_id);
+          if (r.issue_id != null && !left) {
             db.prepare('DELETE FROM audiobooks_progress WHERE issue_id=?').run(r.issue_id);
             db.prepare('DELETE FROM audiobooks_bookmarks WHERE issue_id=?').run(r.issue_id);
             db.prepare('DELETE FROM issues WHERE id=?').run(r.issue_id);
           }
-          db.prepare('DELETE FROM audiobooks_files WHERE path=?').run(r.path);
           if (r.series_id != null) seriesTouched.add(r.series_id);
         }
         for (const sid of seriesTouched) {
@@ -501,11 +612,17 @@ export function openAudiobooksStore(dbPath) {
       if (!ids.length) return out;
       const q = db.prepare(`SELECT issue_id, format, duration, narrators, source, path, unavailable_at, unavailable_reason FROM audiobooks_files
         WHERE issue_id IN (${ids.map(() => '?').join(',')})`);
-      for (const r of q.all(...ids)) out[r.issue_id] = {
-        format: r.format, duration: r.duration, narrators: r.narrators,
-        remote: !!r.source && !r.path, audiobook: true,
-        unavailable: !!r.unavailable_at, unavailableReason: r.unavailable_reason || null,
-      };
+      for (const r of q.all(...ids)) {
+        if (out[r.issue_id]) continue; // a multi-part book: one entry, from its timeline
+        const local = r.path && !r.source;
+        const tl = local ? bookTimeline(r.issue_id) : null;
+        out[r.issue_id] = {
+          format: r.format, duration: tl?.duration ?? r.duration, narrators: r.narrators,
+          remote: !!r.source && !r.path, audiobook: true,
+          unavailable: !!r.unavailable_at, unavailableReason: r.unavailable_reason || null,
+          ...(tl && tl.parts.length > 1 ? { parts: tl.parts.map(({ part, start, duration }) => ({ part, start, duration })) } : {}),
+        };
+      }
       return out;
     },
 

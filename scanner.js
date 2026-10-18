@@ -7,13 +7,15 @@
 // Titles/authors are derived from the folder layout (the dominant audiobook
 // convention is <Author>/<Title>/… or <Author>/<Series>/<Title>/…); those are a
 // best guess flagged title_source:'filename', which the hosted metadata match
-// upgrades on the pass that runs after cataloging. Each audio FILE is one book —
-// a single-file .m4b is the common case; a multi-file MP3 book lands as one
-// series (its leaf folder) with a part per file.
+// upgrades on the pass that runs after cataloging. A single-file .m4b is the
+// common case; the files of a book folder (<Author>/<Title>/…) are ONE book
+// whose parts play in filename order. Each file's length and chapter marks are
+// read from its headers (audiometa.js) when it is new or has changed.
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { libraryFolders } from '../../src/db.js';
+import { probeAudio } from './audiometa.js';
 
 // Formats scanned. Single-file .m4b/.m4a are the common audiobook containers;
 // .mp3 covers older single- and multi-file books.
@@ -68,6 +70,16 @@ export function parsePath(file, libFolder) {
   };
 }
 
+/** Which book a file belongs to: its folder when the folder is the book
+ *  (two or more levels below the library root, where parsePath takes the
+ *  title from the folder), else the file itself. */
+export function bookKey(file, libFolder) {
+  const depth = path.relative(libFolder, file).split(/[\\/]/).filter(Boolean).length - 1;
+  return depth >= 2 ? path.dirname(file) : file;
+}
+// Play order: natural, so "Part 2" comes before "Part 10".
+const byName = (a, b) => path.basename(a.file).localeCompare(path.basename(b.file), undefined, { numeric: true, sensitivity: 'base' });
+
 // Shared scan state for the status endpoint (one scan at a time).
 export const scanState = {
   running: false, done: 0, total: 0, added: 0, updated: 0, removed: 0,
@@ -97,25 +109,52 @@ export async function scanLibraries({ store, log = console.log }) {
     for (const { lib, files } of work) {
       const known = store.pathIndex(lib.id);
       const seen = new Set();
-      for (const { file, folder } of files) {
-        seen.add(file);
-        try {
-          const st = fs.statSync(file);
-          const mtime = Math.round(st.mtimeMs);
-          const prev = known.get(file);
-          // Unchanged AND still cataloged → skip. A removed/untracked book (rows
-          // gone, file still here) re-catalogs.
-          if (prev && prev.mtime === mtime && prev.size === st.size && store.issueIntact(prev)) {
-            scanState.done++;
-            continue;
+      // Group into books: a book folder's files together, everything else alone.
+      const books = new Map();
+      for (const f of files) {
+        const k = bookKey(f.file, f.folder);
+        if (!books.has(k)) books.set(k, []);
+        books.get(k).push(f);
+      }
+      for (const group of books.values()) {
+        group.sort(byName);
+        const multi = group.length > 1;
+        const items = [];
+        for (const { file, folder } of group) {
+          seen.add(file);
+          try {
+            const st = fs.statSync(file);
+            items.push({ file, folder, st, mtime: Math.round(st.mtimeMs), prev: known.get(file) });
+          } catch (e) {
+            log(`audiobooks: skipped unreadable file ${file}: ${e?.message || e}`);
           }
-          const meta = { ...parsePath(file, folder), title_source: 'filename' };
-          store.catalogFile({ libraryId: lib.id, path: file, format: formatOf(file), size: st.size, mtime, meta });
-          if (prev) scanState.updated++; else scanState.added++;
-        } catch (e) {
-          log(`audiobooks: skipped unreadable file ${file}: ${e?.message || e}`);
         }
-        scanState.done++;
+        if (!items.length) { scanState.done += group.length; continue; }
+        // Unchanged, still cataloged, already read, and already shaped as this
+        // book (one issue, parts in this order) → skip. Anything else
+        // re-catalogs the whole book.
+        const issue0 = items[0].prev?.issue_id;
+        const current = items.every((it, i) => it.prev && it.prev.mtime === it.mtime && it.prev.size === it.st.size
+          && it.prev.probed_mtime === it.mtime && store.issueIntact(it.prev)
+          && (multi ? (it.prev.issue_id === issue0 && it.prev.part === i + 1) : it.prev.part == null));
+        if (current) { scanState.done += group.length; continue; }
+        try {
+          for (const it of items) {
+            // Re-read headers only for a file that changed since the last read.
+            it.probe = it.prev && it.prev.probed_mtime === it.mtime ? null : await probeAudio(it.file);
+          }
+          const meta = { ...parsePath(items[0].file, items[0].folder), title_source: 'filename' };
+          if (multi) {
+            store.catalogBook({ libraryId: lib.id, meta, files: items.map((it) => ({ path: it.file, format: formatOf(it.file), size: it.st.size, mtime: it.mtime, probe: it.probe })) });
+          } else {
+            const it = items[0];
+            store.catalogFile({ libraryId: lib.id, path: it.file, format: formatOf(it.file), size: it.st.size, mtime: it.mtime, meta, probe: it.probe });
+          }
+          for (const it of items) { if (it.prev) scanState.updated++; else scanState.added++; }
+        } catch (e) {
+          log(`audiobooks: skipped ${items[0].file}: ${e?.message || e}`);
+        }
+        scanState.done += group.length;
       }
       scanState.removed += store.removeMissing(lib.id, seen);
     }

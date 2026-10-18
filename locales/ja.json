@@ -57,6 +57,7 @@
   "chapters": {
     "loading": "チャプターを読み込み中…",
     "chapterN": "チャプター {n}",
+    "partN": "パート {n}",
     "none": "このオーディオブックにはチャプターがありません。"
   },
   "bookmarks": {

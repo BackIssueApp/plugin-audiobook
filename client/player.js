@@ -469,7 +469,7 @@
           <div class="ab-panel ab-chapters" hidden></div>
           <div class="ab-panel ab-bookmarks" hidden></div>
 
-          <audio class="ab-audio" preload="metadata" src="${streamUrl}"></audio>
+          <audio class="ab-audio" preload="metadata"></audio>
         </div>`;
 
       const $ = (s) => container.querySelector(s);
@@ -479,6 +479,37 @@
       const curEl = $('.ab-cur'), remEl = $('.ab-rem'), durEl = $('.ab-dur'), narrEl = $('.ab-narr');
       const noticeEl = $('.ab-notice');
       let duration = 0, seeking = false, saveTimer = null, sleepTimer = null, chapters = null;
+      // A book in several files plays as one timeline: parts = [{ part, start,
+      // duration }] in book seconds (empty for a single file). Everything the
+      // listener sees and saves is book time; the <audio> element only ever
+      // holds the current part.
+      let parts = [], cur = 0, pendingOffset = null;
+      const multi = () => parts.length > 1;
+      const partSrc = (i) => (multi() ? `${streamUrl}?part=${parts[i].part}` : streamUrl);
+      const now = () => (multi() ? (parts[cur].start || 0) : 0) + (audio.currentTime || 0);
+      const total = () => duration || (multi() ? 0 : audio.duration) || 0;
+      const partFor = (t) => { let i = 0; for (let k = 0; k < parts.length; k++) if (t >= parts[k].start) i = k; return i; };
+      const loadPart = (i, offset, play) => {
+        cur = i;
+        pendingOffset = offset > 0 ? offset : null;
+        audio.src = partSrc(i);
+        audio.load();
+        if (play) audio.play().catch(() => {});
+      };
+      const seekTo = (t, play = false) => {
+        const d = total();
+        t = Math.max(0, d ? Math.min(t, d) : t);
+        if (multi()) {
+          const i = partFor(t);
+          if (i !== cur) { loadPart(i, t - parts[i].start, play || !audio.paused); paintTime(); return; }
+          try { audio.currentTime = t - parts[i].start; } catch { /* not seekable yet */ }
+        } else {
+          try { audio.currentTime = t; } catch { /* not seekable yet */ }
+        }
+        if (play) audio.play().catch(() => {});
+        paintTime();
+      };
+      const chapterLabel = (c, i) => c.title || (c.part ? tr('chapters.partN', 'Part {n}', { n: c.part }) : tr('chapters.chapterN', 'Chapter {n}', { n: i + 1 }));
 
       // Playback failures used to vanish: play() rejected into a swallowed
       // catch and the element's error event went unheard, so a source that
@@ -519,7 +550,7 @@
         explained = true;
         let reason = '';
         try {
-          const r = await fetch(streamUrl, { headers: { Range: 'bytes=0-0' } });
+          const r = await fetch(partSrc(cur), { headers: { Range: 'bytes=0-0' } });
           if (r.status >= 400) { try { reason = (await r.json())?.error || ''; } catch { /* not json */ } reason = reason || tr('player.serverAnswered', 'the server answered {status}', { status: r.status }); }
           else if (r.body) { try { await r.body.cancel(); } catch { /* fine */ } }
         } catch { reason = tr('player.unreachable', 'the app could not be reached'); }
@@ -537,6 +568,8 @@
         const info = (await ctx.get(`/api/audiobooks/info?issues=${id}`)).info || {};
         const meta = info[id] || {};
         if (meta.narrators) narrEl.textContent = tr('versions.readBy', 'Read by {narrator}', { narrator: meta.narrators });
+        if (Array.isArray(meta.parts) && meta.parts.length > 1) parts = meta.parts;
+        if (!meta.duration && multi()) meta.duration = parts.reduce((s, p) => s + (p.duration || 0), 0);
         if (meta.duration) { duration = meta.duration; durEl.textContent = tr('player.durationLine', '{duration} • audiobook', { duration: fmt(meta.duration) }); }
         if (meta.unavailable) showNotice(tr('player.unavailableNow', 'This title isn’t available from its source right now{reason}. Press play to try again.', { reason: meta.unavailableReason ? ': ' + meta.unavailableReason : '' }));
       } catch { /* non-fatal */ }
@@ -544,34 +577,45 @@
       // Resume position.
       let startAt = 0;
       try { const p = await ctx.get(`/api/audiobooks/issue/${id}/progress`); startAt = Number(p.position) || 0; } catch { /* none */ }
+      // Start in the part that holds the resume point.
+      if (multi() && startAt > 0 && (!duration || startAt < duration - 5)) { const i = partFor(startAt); loadPart(i, startAt - parts[i].start, false); }
+      else loadPart(0, startAt, false);
 
       const paintTime = () => {
-        const cur = audio.currentTime || 0;
-        const dur = duration || audio.duration || 0;
-        curEl.textContent = fmt(cur);
-        remEl.textContent = '-' + fmt(Math.max(0, dur - cur));
-        if (!seeking && dur) seek.value = String(Math.round((cur / dur) * 1000));
-        highlightChapter(cur);
+        const at = now();
+        const dur = total();
+        curEl.textContent = fmt(at);
+        remEl.textContent = '-' + fmt(Math.max(0, dur - at));
+        if (!seeking && dur) seek.value = String(Math.round((at / dur) * 1000));
+        highlightChapter(at);
       };
       // Set by Mark finished: saves report the end of the book until playback
       // starts again, so a pause right after can't undo it.
       let markedDone = false;
       const saveProgress = () => {
-        const dur = duration || audio.duration || 0;
+        const dur = total();
         if (markedDone) { if (dur) return ctx.post(`/api/audiobooks/issue/${id}/progress`, { position: dur, duration: dur }).catch(() => {}); return; }
-        if (!audio.currentTime) return;
-        ctx.post(`/api/audiobooks/issue/${id}/progress`, { position: audio.currentTime, duration: dur }).catch(() => {});
+        if (!now()) return;
+        ctx.post(`/api/audiobooks/issue/${id}/progress`, { position: now(), duration: dur }).catch(() => {});
       };
 
       audio.addEventListener('loadedmetadata', () => {
-        if (!duration && audio.duration && Number.isFinite(audio.duration)) { duration = audio.duration; durEl.textContent = tr('player.durationLine', '{duration} • audiobook', { duration: fmt(duration) }); }
-        if (startAt > 0 && startAt < (duration || audio.duration || Infinity) - 5) { try { audio.currentTime = startAt; } catch { /* not seekable yet */ } }
+        if (!duration && !multi() && audio.duration && Number.isFinite(audio.duration)) { duration = audio.duration; durEl.textContent = tr('player.durationLine', '{duration} • audiobook', { duration: fmt(duration) }); }
+        // The offset this part was opened at (a resume point, a seek, a chapter).
+        if (pendingOffset != null) {
+          const off = pendingOffset; pendingOffset = null;
+          if (multi() || off < (audio.duration || Infinity) - 5) { try { audio.currentTime = off; } catch { /* not seekable yet */ } }
+        }
         paintTime();
       });
       audio.addEventListener('timeupdate', paintTime);
       audio.addEventListener('play', () => { markedDone = false; toggle.innerHTML = SVG.pause; toggle.title = tr('player.pause', 'Pause'); saveTimer = setInterval(saveProgress, 10000); });
       audio.addEventListener('pause', () => { toggle.innerHTML = SVG.play; toggle.title = tr('player.play', 'Play'); clearInterval(saveTimer); saveProgress(); renderAudiobookRails(); });
-      audio.addEventListener('ended', () => { clearInterval(saveTimer); saveProgress(); });
+      audio.addEventListener('ended', () => {
+        // The next file of a multi-part book follows straight on.
+        if (multi() && cur < parts.length - 1) { loadPart(cur + 1, 0, true); return; }
+        clearInterval(saveTimer); saveProgress();
+      });
 
       toggle.onclick = () => {
         if (!audio.paused) { audio.pause(); return; }
@@ -579,7 +623,7 @@
         audio.play().catch((e) => { if (e?.name === 'AbortError') { toggle.classList.remove('is-busy'); return; } explainFailure(); });
       };
       $('.ab-donebtn').onclick = async () => {
-        const dur = duration || audio.duration || 0;
+        const dur = total();
         if (!dur) { toastOnce(api, tr('player.markFailed', 'Could not mark it finished yet. Try again once it has loaded.')); return; }
         markedDone = true;
         clearInterval(saveTimer);
@@ -588,10 +632,10 @@
         renderAudiobookRails();
         if (api.toast) api.toast(tr('player.markedFinished', 'Marked as finished.'), 'ok');
       };
-      $('.ab-back').onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 15); paintTime(); };
-      $('.ab-fwd').onclick = () => { audio.currentTime = Math.min((duration || audio.duration || 0), audio.currentTime + 15); paintTime(); };
-      seek.addEventListener('input', () => { seeking = true; const dur = duration || audio.duration || 0; curEl.textContent = fmt((seek.value / 1000) * dur); });
-      seek.addEventListener('change', () => { const dur = duration || audio.duration || 0; audio.currentTime = (seek.value / 1000) * dur; seeking = false; saveProgress(); });
+      $('.ab-back').onclick = () => seekTo(now() - 15);
+      $('.ab-fwd').onclick = () => seekTo(now() + 15);
+      seek.addEventListener('input', () => { seeking = true; curEl.textContent = fmt((seek.value / 1000) * total()); });
+      seek.addEventListener('change', () => { seeking = false; seekTo((seek.value / 1000) * total()); saveProgress(); });
 
       // Speed cycles through SPEEDS.
       const speedV = $('.ab-speed__v');
@@ -616,11 +660,11 @@
           chapPanel.hidden = false;
           try { chapters = (await ctx.get(`/api/audiobooks/issue/${id}/chapters`)).chapters || []; } catch { chapters = []; }
           chapPanel.innerHTML = chapters.length
-            ? chapters.map((c, i) => `<button class="ab-chap" data-t="${c.start}"><span class="ab-chap__n">${i + 1}.</span> <span class="ab-chap__t">${esc(c.title || tr('chapters.chapterN', 'Chapter {n}', { n: i + 1 }))}</span><span class="ab-chap__time">${fmt(c.start)}</span></button>`).join('')
+            ? chapters.map((c, i) => `<button class="ab-chap" data-t="${c.start}"><span class="ab-chap__n">${i + 1}.</span> <span class="ab-chap__t">${esc(chapterLabel(c, i))}</span><span class="ab-chap__time">${fmt(c.start)}</span></button>`).join('')
             : '<div class="ab-panel__empty">' + te('chapters.none', 'No chapter marks for this audiobook.') + '</div>';
-          chapPanel.querySelectorAll('.ab-chap').forEach((el) => { el.onclick = () => { audio.currentTime = Number(el.dataset.t) || 0; audio.play().catch(() => {}); paintTime(); }; });
+          chapPanel.querySelectorAll('.ab-chap').forEach((el) => { el.onclick = () => seekTo(Number(el.dataset.t) || 0, true); });
         } else chapPanel.hidden = false;
-        highlightChapter(audio.currentTime || 0);
+        highlightChapter(now());
       };
 
       // Sleep timer.
@@ -646,12 +690,12 @@
           : '<div class="ab-panel__empty">' + te('bookmarks.emptyHint', 'No bookmarks yet. Use Add bookmark here to save your spot.') + '</div>');
         bmPanel.querySelector('.ab-bm__add').onclick = addBookmark;
         bmPanel.querySelectorAll('.ab-bm').forEach((el) => {
-          el.querySelector('.ab-bm__go').onclick = () => { audio.currentTime = Number(el.dataset.t) || 0; audio.play().catch(() => {}); paintTime(); };
+          el.querySelector('.ab-bm__go').onclick = () => seekTo(Number(el.dataset.t) || 0, true);
           el.querySelector('.ab-bm__del').onclick = async () => { try { await fetch(`/api/audiobooks/bookmarks/${el.dataset.id}`, { method: 'DELETE', headers: { 'content-type': 'application/json' } }); } catch { /* keep list */ } loadBookmarks(); };
         });
       };
       async function addBookmark() {
-        try { await ctx.post(`/api/audiobooks/issue/${id}/bookmarks`, { position: audio.currentTime || 0, note: chapterTitleAt(audio.currentTime || 0) }); api.toast && api.toast(tr('bookmarks.saved', 'Bookmark saved.'), 'ok'); } catch { api.toast && api.toast(tr('bookmarks.saveFailed', 'Could not save bookmark.'), 'error'); }
+        try { await ctx.post(`/api/audiobooks/issue/${id}/bookmarks`, { position: now(), note: chapterTitleAt(now()) }); api.toast && api.toast(tr('bookmarks.saved', 'Bookmark saved.'), 'ok'); } catch { api.toast && api.toast(tr('bookmarks.saveFailed', 'Could not save bookmark.'), 'error'); }
         loadBookmarks();
       }
       // The chip opens and closes the list (like Chapters); adding is a button
@@ -663,7 +707,7 @@
       };
       const chapterTitleAt = (t) => {
         if (!chapters || !chapters.length) return null;
-        let title = null; for (const c of chapters) if (t >= c.start) title = c.title;
+        let title = null; chapters.forEach((c, i) => { if (t >= c.start) title = chapterLabel(c, i); });
         return title || null;
       };
 

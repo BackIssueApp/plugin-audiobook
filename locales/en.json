@@ -59,6 +59,7 @@
   "chapters": {
     "loading": "Loading chapters…",
     "chapterN": "Chapter {n}",
+    "partN": "Part {n}",
     "none": "No chapter marks for this audiobook."
   },
   "bookmarks": {

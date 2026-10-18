@@ -10,6 +10,17 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ### Added
 
+- **Books in several files play as one.** A book folder's files
+  (`Author/Title/Part 1.mp3`, `Part 2.mp3`, …) are now one book with parts
+  in filename order ("Part 2" before "Part 10"), not a pile of alternate
+  recordings. The player moves on to the next file by itself, and seeking,
+  the time left, bookmarks and your saved place count across the whole
+  book. Where you were in a part, and its bookmarks, carry over on the next
+  scan.
+- **Chapters for your own files.** The chapter marks inside M4B and MP3
+  files show in the player's Chapters list, and each file's length is read
+  from the file. A part with no marks of its own is listed as one chapter,
+  Part n.
 - **Wanted audiobooks have a screen.** The Wanted page gets an Audiobooks tab
   listing every audiobook you asked for that hasn't arrived, with when its last
   search ran and what it found. **Search now** tries the sources again without

@@ -145,7 +145,9 @@ export default function register(api) {
   // pipe the 206 straight through, so nothing buffers a whole 1GB file in memory.
   api.registerRoute('get', '/api/audiobooks/issue/:id/stream', async (req, res) => {
     const issueId = Number(req.params.id);
-    const row = store.fileByIssue(issueId);
+    // ?part=n picks one file of a multi-part book; without it, the first.
+    const part = Number(req.query.part) || null;
+    const row = part ? (store.partsOf(issueId).find((r) => (r.part || 1) === part) || null) : store.fileByIssue(issueId);
     if (!row) return res.status(404).end();
 
     if (row.path && fs.existsSync(row.path)) {          // cached on disk → let Express handle Range/ETag
@@ -216,6 +218,11 @@ export default function register(api) {
     const issueId = Number(req.params.id);
     const row = store.fileByIssue(issueId);
     if (!row) return res.json({ chapters: [], duration: null });
+    // A local book: chapters and parts in book time, from its files' headers.
+    if (row.path && !row.source) {
+      const tl = store.bookTimeline(issueId);
+      return res.json({ chapters: tl.chapters, duration: tl.duration, parts: tl.parts });
+    }
     let chapters = [];
     try { chapters = row.chapters ? JSON.parse(row.chapters) : []; } catch { chapters = []; }
     if (!chapters.length && row.source && row.remote_id) {

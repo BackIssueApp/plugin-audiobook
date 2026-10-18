@@ -59,6 +59,7 @@
   "chapters": {
     "loading": "Hoofdstukken laden…",
     "chapterN": "Hoofdstuk {n}",
+    "partN": "Deel {n}",
     "none": "Geen hoofdstukmarkeringen voor dit luisterboek."
   },
   "bookmarks": {

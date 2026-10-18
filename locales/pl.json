@@ -63,6 +63,7 @@
   "chapters": {
     "loading": "Wczytywanie rozdziałów…",
     "chapterN": "Rozdział {n}",
+    "partN": "Część {n}",
     "none": "Ten audiobook nie ma znaczników rozdziałów."
   },
   "bookmarks": {
