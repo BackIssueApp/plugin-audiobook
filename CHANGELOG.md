@@ -8,6 +8,8 @@ by the maintainers when changes merge, so concurrent PRs don't conflict here.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-18
+
 ### Added
 
 - **Books in several files play as one.** A book folder's files
