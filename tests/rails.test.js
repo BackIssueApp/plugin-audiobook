@@ -43,6 +43,9 @@ test('status-only filter: reading / finished / unread per user, audiobook librar
     assert.deepEqual(ask('reading'), [midway.s]);
     assert.deepEqual(sorted(ask('finished')), sorted([nearEnd.s, done.s]));
     assert.deepEqual(ask('unread'), [untouched.s], "another user's progress does not count");
+    // A core that takes exclusions gets only the begun books, not every unread one.
+    const begun = filter.resolve({ status: 'unread' }, { db, userId: 7, library: lib, canExclude: true });
+    assert.deepEqual(sorted(begun.excludeIds), sorted([midway.s, nearEnd.s, done.s]));
     assert.equal(ask('reading', { authors: [3] }), null, 'richer selections are left to Shelves');
     assert.equal(ask('bogus'), null);
     assert.equal(filter.resolve({ status: 'reading' }, { db, userId: 7, library: comics }), null, 'not for other library types');
