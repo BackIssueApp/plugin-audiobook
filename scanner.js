@@ -11,7 +11,6 @@
 // common case; the files of a book folder (<Author>/<Title>/…) are ONE book
 // whose parts play in filename order. Each file's length and chapter marks are
 // read from its headers (audiometa.js) when it is new or has changed.
-import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { libraryFolders } from '../../src/db.js';
@@ -80,6 +79,25 @@ export function bookKey(file, libFolder) {
 // Play order: natural, so "Part 2" comes before "Part 10".
 const byName = (a, b) => path.basename(a.file).localeCompare(path.basename(b.file), undefined, { numeric: true, sensitivity: 'base' });
 
+// Files are stat'ed a few at a time, asynchronously: a rescan of an unchanged
+// library is mostly stats, and on network storage a synchronous stat per file
+// held the whole server for the length of the scan.
+const STAT_BATCH = 8;
+/** stat(files[i]), fetched STAT_BATCH at a time just ahead of the loop. */
+export function batchedStat(files, size = STAT_BATCH) {
+  let base = -1, batch = null;
+  return async (i) => {
+    const b = i - (i % size);
+    if (b !== base) {
+      base = b;
+      batch = Promise.all(files.slice(b, b + size).map((f) => fsp.stat(f).catch((e) => e)));
+    }
+    const st = (await batch)[i - b];
+    if (st instanceof Error) throw st;
+    return st;
+  };
+}
+
 // Shared scan state for the status endpoint (one scan at a time).
 export const scanState = {
   running: false, done: 0, total: 0, added: 0, updated: 0, removed: 0,
@@ -116,14 +134,17 @@ export async function scanLibraries({ store, log = console.log }) {
         if (!books.has(k)) books.set(k, []);
         books.get(k).push(f);
       }
-      for (const group of books.values()) {
-        group.sort(byName);
+      const groups = [...books.values()];
+      for (const group of groups) group.sort(byName);
+      const statOf = batchedStat(groups.flatMap((g) => g.map((f) => f.file)));
+      let at = 0; // position in that flat list
+      for (const group of groups) {
         const multi = group.length > 1;
         const items = [];
         for (const { file, folder } of group) {
           seen.add(file);
           try {
-            const st = fs.statSync(file);
+            const st = await statOf(at++);
             items.push({ file, folder, st, mtime: Math.round(st.mtimeMs), prev: known.get(file) });
           } catch (e) {
             log(`audiobooks: skipped unreadable file ${file}: ${e?.message || e}`);

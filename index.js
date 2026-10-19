@@ -7,7 +7,7 @@
 // to the source (credentials stay server-side). Audiobooks are self-described
 // `audiobook`-type catalog rows, so the Library grid, series pages, permissions
 // and the mature filter all ride core.
-import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import config from '../../src/config.js';
 import { registeredRemoteMediaSources } from '../../src/plugins.js';
@@ -155,7 +155,9 @@ export default function register(api) {
     const row = part ? (store.partsOf(issueId).find((r) => (r.part || 1) === part) || null) : store.fileByIssue(issueId);
     if (!row) return res.status(404).end();
 
-    if (row.path && fs.existsSync(row.path)) {          // cached on disk → let Express handle Range/ETag
+    // Every seek is a Range request, so the on-disk check is async: a blocking
+    // stat on network storage would hold every other request each time.
+    if (row.path && await fsp.stat(row.path).then((st) => st.isFile(), () => false)) { // cached on disk → let Express handle Range/ETag
       return res.sendFile(row.path, { headers: { 'Content-Type': mimeFor(row.format), 'Cache-Control': 'private, max-age=0' } });
     }
     const src = sourceFor(row.source);

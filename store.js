@@ -155,6 +155,27 @@ export function openAudiobooksStore(dbPath) {
     CREATE INDEX IF NOT EXISTS idx_abfiles_unavailable ON audiobooks_files (source, unavailable_at);
     CREATE INDEX IF NOT EXISTS idx_abfiles_part ON audiobooks_files (issue_id, part);
   `);
+  // "Already on the shelf?" runs for every result of a catalog search. It was
+  // two scans per result (match id, an issue-title LIKE). Each now probes an
+  // index — the title one on title_key, which local books now carry too
+  // (remote rows always did; the twin lookups only ever compare rows of one
+  // source, so local keys never meet them).
+  // Rows without a key (written before this, or by an older version since) get
+  // one on open: a table scan the first time, then a probe of the new index.
+  const keyIndexed = !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_abfiles_titlekey'").get();
+  const fillTitleKeys = () => {
+    try {
+      db.prepare(`UPDATE audiobooks_files
+        SET title_key = (SELECT lower(trim(i.title)) FROM issues i WHERE i.id = audiobooks_files.issue_id)
+        WHERE title_key IS NULL AND issue_id IS NOT NULL`).run();
+    } catch { /* no core issues table yet — so no rows to fill */ }
+  };
+  if (!keyIndexed) fillTitleKeys();
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_abfiles_titlekey ON audiobooks_files (title_key);
+    CREATE INDEX IF NOT EXISTS idx_abfiles_match ON audiobooks_files (match_id);
+  `);
+  if (keyIndexed) fillTitleKeys();
   /** Fill title_key for a source's rows that predate the column (or lost it). */
   const ensureTitleKeys = (source) => {
     db.prepare(`UPDATE audiobooks_files
@@ -172,12 +193,16 @@ export function openAudiobooksStore(dbPath) {
   // finished (idempotent; a no-op once caught up).
   db.exec(`UPDATE audiobooks_progress AS p SET finished = 1 WHERE p.finished = 0 AND ${FINISHED_SQL('p')}`);
 
-  /** Write a local file's audiobooks_files row (insert or refresh in place). */
+  /** Write a local file's audiobooks_files row (insert or refresh in place).
+   *  title_key follows the issue title for local rows; a cached remote row
+   *  keeps the source's title (its twin lookups compare that). */
   function upsertFileRow({ path: p, libraryId, seriesId, issueId, format, size, mtime, titleSource, part = null, probe = null }) {
     db.prepare(`INSERT INTO audiobooks_files
-        (path, library_id, series_id, issue_id, format, size, mtime, title_source, added_at, part, file_duration, embedded_chapters, probed_mtime)
-      VALUES (@path, @lib, @sid, @iid, @format, @size, @mtime, @title_source, @now, @part, @fdur, @echap, @pm)
+        (path, library_id, series_id, issue_id, format, size, mtime, title_source, added_at, part, file_duration, embedded_chapters, probed_mtime, title_key)
+      VALUES (@path, @lib, @sid, @iid, @format, @size, @mtime, @title_source, @now, @part, @fdur, @echap, @pm,
+        (SELECT lower(trim(title)) FROM issues WHERE id = @iid))
       ON CONFLICT(path) DO UPDATE SET
+        title_key=CASE WHEN audiobooks_files.source IS NULL THEN excluded.title_key ELSE audiobooks_files.title_key END,
         library_id=excluded.library_id, series_id=excluded.series_id, issue_id=excluded.issue_id,
         format=excluded.format, size=excluded.size, mtime=excluded.mtime,
         title_source=excluded.title_source, part=excluded.part,
@@ -549,6 +574,7 @@ export function openAudiobooksStore(dbPath) {
         const standalone = isStandalone(series);
         if (merged.title) {
           db.prepare('UPDATE issues SET title=? WHERE id=?').run(merged.title, issueId);
+          db.prepare('UPDATE audiobooks_files SET title_key=lower(trim(?)) WHERE issue_id=? AND source IS NULL').run(merged.title, issueId);
           if (standalone) db.prepare('UPDATE series SET title=? WHERE id=?').run(merged.title, series.id);
         }
         if (Array.isArray(merged.authors) && merged.authors.length && !series.publisher) {
@@ -734,9 +760,8 @@ export function openAudiobooksStore(dbPath) {
         const i = db.prepare('SELECT id, series_id FROM issues WHERE id=?').get(issueId);
         return i ? { issueId: i.id, seriesId: i.series_id } : null;
       };
-      const cleanIsbn = String(isbn || '').replace(/[\s-]/g, '') || null;
-      const byKey = db.prepare(`SELECT f.issue_id FROM audiobooks_files f WHERE f.issue_id IS NOT NULL AND ((@mid IS NOT NULL AND f.match_id = @mid) ) LIMIT 1`)
-        .get({ mid: matchId != null ? String(matchId) : null, isbn: cleanIsbn });
+      const byKey = matchId != null
+        && db.prepare('SELECT issue_id FROM audiobooks_files WHERE match_id = ? AND issue_id IS NOT NULL LIMIT 1').get(String(matchId));
       if (byKey) { const f = found(byKey.issue_id); if (f) return f; }
       if (!title) return null;
       const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -745,14 +770,23 @@ export function openAudiobooksStore(dbPath) {
       // by their key: the part before a subtitle, with bracketed notes dropped.
       const key = titleKey(title);
       if (!key) return null;
-      const rows = db.prepare(`SELECT f.issue_id, i.title, s.publisher FROM audiobooks_files f
-          JOIN issues i ON i.id = f.issue_id JOIN series s ON s.id = i.series_id
-         WHERE lower(i.title) LIKE ? LIMIT 40`).all(key.split(' ')[0] + '%');
+      // Candidates: books whose title starts with the key's first word — a
+      // range on idx_abfiles_titlekey, walked until a real match (not just
+      // the first 40 sharing a common first word, which could miss it).
+      const first = key.split(' ')[0];
       const a = norm(author);
       const last = a.split(' ').pop();
-      const hit = rows.find((r) => titleKey(r.title) === key
-        && (!a || !r.publisher || norm(r.publisher).includes(a) || a.includes(norm(r.publisher)) || (last && norm(r.publisher).includes(last))));
-      return hit ? found(hit.issue_id) : null;
+      const candidates = db.prepare(`SELECT f.issue_id, i.title, s.publisher FROM audiobooks_files f
+          JOIN issues i ON i.id = f.issue_id JOIN series s ON s.id = i.series_id
+         WHERE f.title_key >= ? AND f.title_key < ? LIMIT 5000`).iterate(first, first + String.fromCodePoint(0x10ffff));
+      for (const r of candidates) {
+        if (titleKey(r.title) === key
+          && (!a || !r.publisher || norm(r.publisher).includes(a) || a.includes(norm(r.publisher)) || (last && norm(r.publisher).includes(last)))) {
+          candidates.return();
+          return found(r.issue_id);
+        }
+      }
+      return null;
     },
 
     /** Want a catalog book: one row per catalog id (asking again refreshes it). */

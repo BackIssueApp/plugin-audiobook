@@ -107,23 +107,36 @@ export async function runRemoteSync({
           if (!items.length) break;
           pagesSeen++;
 
+          // The whole page is cataloged in ONE transaction (each title's own
+          // transaction nests as a savepoint, so one bad entry still rolls back
+          // alone): a commit per title was a quarter of a million commits for
+          // a full catalog. The twin probes are network calls, so they run
+          // after the commit.
           let interrupted = false;
-          for (const b of items) {
-            if (stopRequested()) { interrupted = true; break; }
-            if (!b || b.remote_id == null) continue;
-            const isNew = !store.db.prepare('SELECT 1 x FROM audiobooks_files WHERE source=? AND remote_id=?').get(src.id, String(b.remote_id));
-            if (isNew && cap > 0 && claimed >= cap) { interrupted = true; break; }
-            remoteSyncState.current = { remote_id: b.remote_id, title: b.title || String(b.remote_id) };
-            try {
-              const { created } = store.catalogRemote({ libraryId: lib.id, source: src.id, remoteId: b.remote_id, meta: b });
-              if (created) {
-                if (await pruneDeadTwins(src, b.remote_id)) continue; // a dead record: undone, counts as nothing
-                remoteSyncState.created++; claimed++;
-              } else remoteSyncState.updated++;
-              remoteSyncState.done++;
-            } catch (e) { remoteSyncState.error = String(e?.message || e); }
-            emit();
+          const fresh = [];
+          store.db.transaction(() => {
+            for (const b of items) {
+              if (stopRequested()) { interrupted = true; break; }
+              if (!b || b.remote_id == null) continue;
+              const isNew = !store.db.prepare('SELECT 1 x FROM audiobooks_files WHERE source=? AND remote_id=?').get(src.id, String(b.remote_id));
+              if (isNew && cap > 0 && claimed >= cap) { interrupted = true; break; }
+              remoteSyncState.current = { remote_id: b.remote_id, title: b.title || String(b.remote_id) };
+              try {
+                const { created } = store.catalogRemote({ libraryId: lib.id, source: src.id, remoteId: b.remote_id, meta: b });
+                if (created) { fresh.push(b.remote_id); claimed++; }
+                else { remoteSyncState.updated++; remoteSyncState.done++; }
+              } catch (e) { remoteSyncState.error = String(e?.message || e); }
+              emit();
+            }
+          })();
+          for (const remoteId of fresh) {
+            if (await pruneDeadTwins(src, remoteId)) { claimed--; continue; } // a dead record: undone, counts as nothing
+            remoteSyncState.created++; remoteSyncState.done++;
           }
+          if (fresh.length) emit();
+          // Let queued requests run between pages even when the source
+          // answers from a cache.
+          await new Promise((r) => setImmediate(r));
           if (interrupted) { clean = false; break; }
           if (!incremental) store.setRemoteCursor(src.id, page + 1, remoteSyncState.total);
           page += 1;
